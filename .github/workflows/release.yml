@@ -104,12 +104,36 @@ jobs:
               shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
               ;;
           esac
+      - uses: taiki-e/install-action@v2
+        if: contains(matrix.target, 'linux')
+        with:
+          tool: cargo-deb,cargo-generate-rpm
+      - name: Package deb and rpm
+        if: contains(matrix.target, 'linux')
+        shell: bash
+        run: |
+          name="linguo-v${{ needs.tag.outputs.version }}-${{ matrix.target }}"
+          cargo deb --no-build --target ${{ matrix.target }} --output "$name.deb"
+          cargo generate-rpm --target ${{ matrix.target }} --output "$name.rpm"
+          sha256sum "$name.deb" > "$name.deb.sha256"
+          sha256sum "$name.rpm" > "$name.rpm.sha256"
+      - name: Package MSI
+        if: contains(matrix.target, 'windows')
+        shell: bash
+        run: |
+          cargo install cargo-wix --locked
+          name="linguo-v${{ needs.tag.outputs.version }}-${{ matrix.target }}"
+          cargo wix --no-build --target ${{ matrix.target }} --nocapture --output "$name.msi"
+          sha256sum "$name.msi" > "$name.msi.sha256"
       - uses: actions/upload-artifact@v4
         with:
           name: linguo-${{ matrix.target }}
           path: |
             linguo-v*.tar.gz*
             linguo-v*.zip*
+            linguo-v*.deb*
+            linguo-v*.rpm*
+            linguo-v*.msi*
 
   release:
     needs: [tag, build]
