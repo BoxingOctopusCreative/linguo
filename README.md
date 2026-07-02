@@ -140,7 +140,9 @@ Roughly in order:
   rv-ruby), and a Windows story (RubyInstaller-based).
 - **Windows arm64 binaries** — the backends already map the targets; needs a
   release lane and CI coverage.
-- **`linguo self update`** and a curl-able install script.
+- **A curl-able install script** (and eventually a Homebrew formula) for
+  platforms not covered by the deb/rpm/MSI packages — updating linguo itself
+  stays the package manager's job.
 - **Workspace/monorepo ergonomics** — one `linguo sync` for a repo pinning
   several languages at once.
 
