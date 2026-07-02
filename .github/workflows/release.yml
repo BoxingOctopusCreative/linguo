@@ -52,7 +52,11 @@ jobs:
           cargo update --workspace  # sync Cargo.lock to the new version
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "Release v${version}"
+          # Cargo.toml may already carry the target version (e.g. the very
+          # first release); tag HEAD directly in that case.
+          if ! git diff --quiet; then
+            git commit -am "Release v${version}"
+          fi
           git tag "v${version}"
           git push origin main "v${version}"
 
