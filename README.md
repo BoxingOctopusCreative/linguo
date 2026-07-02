@@ -3,9 +3,8 @@
 Cross-platform, multi-language runtime, package, and project manager — think
 uv, but for Python, Go, Node.js, Ruby, Rust, and Terraform.
 
-Commands follow the shape `linguo <language> <command>`. Python, Node.js,
-Ruby, Go, and Terraform/OpenTofu are supported so far; Rust will follow the
-same command surface.
+Commands follow the shape `linguo <language> <command>`, covering Python,
+Node.js, Ruby, Rust, Go, and Terraform/OpenTofu.
 
 ## Install
 
@@ -66,6 +65,15 @@ linguo ruby install 3.4
 linguo ruby init
 linguo ruby add rails
 linguo ruby run -- rails new .
+
+# Rust toolchains come straight from the official static.rust-lang.org dist
+# channels (rustc/cargo/rust-std/clippy/rustfmt, manifest-hash-verified) — no
+# rustup involved. Projects are plain cargo; a rust-toolchain.toml with a
+# plain version is honored as a pin when no linguo.toml covers rust.
+linguo rust install 1.96          # resolves the latest 1.96.x
+linguo rust init
+linguo rust add serde
+linguo rust run -- cargo build
 
 # So does Go (toolchains from go.dev/dl, sha256-verified; projects are plain
 # go.mod managed through the pinned toolchain's go tool)

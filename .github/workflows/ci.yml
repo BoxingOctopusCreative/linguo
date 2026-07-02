@@ -61,6 +61,12 @@ jobs:
           linguo tf run -- terraform version
           linguo tf which
 
+          linguo rust install 1.96
+          mkdir "$RUNNER_TEMP/rust-demo" && cd "$RUNNER_TEMP/rust-demo"
+          linguo rust init demo
+          linguo rust run -- cargo run --quiet
+          linguo rust which
+
           linguo status
       - name: Smoke test (PowerShell hook)
         shell: pwsh
