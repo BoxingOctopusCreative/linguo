@@ -31,16 +31,17 @@ Ruby is not yet available on Windows (no upstream relocatable builds).
 
 ## Install
 
-Download a release binary (deb/rpm/MSI packages and tarballs are on the
-releases page), install via Homebrew from a personal tap (every release
-attaches a ready-made `linguo.rb` formula, also kept at
-[packaging/homebrew/linguo.rb](packaging/homebrew/linguo.rb)), or build from
-source:
+Install via Homebrew, download a release binary (deb/rpm/MSI packages and
+tarballs are on the releases page), or build from source:
 
 ```sh
-brew install <your-tap>/linguo   # after adding linguo.rb to your tap
+brew tap boxingoctopuscreative/tap && brew install linguo
 cargo install --path .           # from a checkout
 ```
+
+The tap's formula is updated automatically by the release pipeline (each
+release also attaches the generated `linguo.rb`, kept at
+[packaging/homebrew/linguo.rb](packaging/homebrew/linguo.rb)).
 
 Then add the shell hook to your rc file so pinned runtimes activate
 automatically when you `cd` into a project:
