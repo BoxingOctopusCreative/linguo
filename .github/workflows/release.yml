@@ -1,0 +1,131 @@
+# Cuts a release: bumps the version in Cargo.toml, pushes a semver tag,
+# builds binaries for every supported platform, and publishes a GitHub
+# release whose notes are generated from the commit messages since the
+# previous release.
+#
+# Trigger it from the Actions tab (workflow_dispatch) and pick which semver
+# component to bump.
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Semver component to bump
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+permissions:
+  contents: write
+
+concurrency: release
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Compute next version
+        id: version
+        run: |
+          prev="$(git tag --list 'v*' --sort=-v:refname | head -1)"
+          prev="${prev:-v0.0.0}"
+          IFS=. read -r major minor patch <<< "${prev#v}"
+          case "${{ inputs.bump }}" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          echo "version=${major}.${minor}.${patch}" >> "$GITHUB_OUTPUT"
+      - name: Bump Cargo.toml, commit, and push tag
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          sed -i "s/^version = \".*\"/version = \"${version}\"/" Cargo.toml
+          cargo update --workspace  # sync Cargo.lock to the new version
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Release v${version}"
+          git tag "v${version}"
+          git push origin main "v${version}"
+
+  build:
+    needs: tag
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            runner: macos-14
+          - target: x86_64-apple-darwin
+            runner: macos-13
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.tag.outputs.version }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: cargo build --release --target ${{ matrix.target }}
+      - name: Package
+        run: |
+          name="linguo-v${{ needs.tag.outputs.version }}-${{ matrix.target }}"
+          mkdir "$name"
+          cp "target/${{ matrix.target }}/release/linguo" README.md LICENSE "$name/"
+          tar czf "$name.tar.gz" "$name"
+          shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linguo-${{ matrix.target }}
+          path: |
+            *.tar.gz
+            *.tar.gz.sha256
+
+  release:
+    needs: [tag, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: v${{ needs.tag.outputs.version }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Generate release notes from commit messages
+        run: |
+          version="v${{ needs.tag.outputs.version }}"
+          if prev="$(git describe --tags --abbrev=0 --match 'v*' "${version}^" 2>/dev/null)"; then
+            range="${prev}..${version}"
+          else
+            prev=""
+            range="$version"
+          fi
+          {
+            echo "## Changes"
+            echo
+            git log --no-merges --format='- %s (%h)' "$range" | grep -v '^- Release v' || true
+            if [ -n "$prev" ]; then
+              echo
+              echo "**Full changelog:** https://github.com/${{ github.repository }}/compare/${prev}...${version}"
+            fi
+          } > notes.md
+          cat notes.md
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="v${{ needs.tag.outputs.version }}"
+          gh release create "$version" dist/* --title "linguo $version" --notes-file notes.md
