@@ -1,5 +1,7 @@
 # Linguo
 
+![Linguo Logo](https://assets.linguo.run/brand/linguo_wide.png)
+
 Linguo is a cross-platform, multi-language runtime, package, and project manager: think
 [`uv`](https://github.com/astral-sh/uv), but for **Python, Node.js, Ruby, Rust, Go, and Terraform/OpenTofu**.
 
