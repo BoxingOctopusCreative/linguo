@@ -2,7 +2,6 @@
 //! from get.opentofu.org / GitHub releases.
 
 use std::collections::HashMap;
-use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
@@ -22,6 +21,8 @@ fn platform() -> Result<(&'static str, &'static str)> {
         ("macos", "x86_64") => ("darwin", "amd64"),
         ("linux", "aarch64") => ("linux", "arm64"),
         ("linux", "x86_64") => ("linux", "amd64"),
+        ("windows", "x86_64") => ("windows", "amd64"),
+        ("windows", "aarch64") => ("windows", "arm64"),
         (os, arch) => bail!("unsupported platform for terraform: {os}/{arch}"),
     };
     Ok(pair)
@@ -147,32 +148,6 @@ fn fetch_opentofu() -> Result<Vec<AvailableBuild>> {
     Ok(builds)
 }
 
-/// Extract a zip archive into `dest`, preserving unix permissions.
-fn extract_zip(archive: &[u8], dest: &Path) -> Result<()> {
-    let mut zip = zip::ZipArchive::new(Cursor::new(archive)).context("failed to open archive")?;
-    std::fs::create_dir_all(dest)
-        .with_context(|| format!("failed to create {}", dest.display()))?;
-    for i in 0..zip.len() {
-        let mut file = zip.by_index(i).context("failed to read archive entry")?;
-        if file.is_dir() {
-            continue;
-        }
-        let path = dest.join(file.mangled_name());
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        let mut out = std::fs::File::create(&path)
-            .with_context(|| format!("failed to create {}", path.display()))?;
-        std::io::copy(&mut file, &mut out).context("failed to extract archive entry")?;
-        #[cfg(unix)]
-        if let Some(mode) = file.unix_mode() {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode))?;
-        }
-    }
-    Ok(())
-}
-
 /// Download the build, verify its checksum, and extract it so that the
 /// distribution's binary (`terraform` or `tofu`) sits at the top of `dest`.
 pub fn install_build(build: &AvailableBuild, dest: &Path) -> Result<()> {
@@ -190,7 +165,7 @@ pub fn install_build(build: &AvailableBuild, dest: &Path) -> Result<()> {
     eprintln!("downloading {}", build.url);
     let archive = fetch::download(&http, &build.url)?;
     fetch::verify_sha256(&archive, &expected, &build.filename)?;
-    extract_zip(&archive, dest)
+    fetch::extract_archive_root(&archive, &build.filename, dest)
 }
 
 /// Terraform archives hold the binary at the top level, so the toolchain

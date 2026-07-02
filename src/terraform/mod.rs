@@ -324,8 +324,7 @@ pub fn which(command: Option<String>) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let (dist, bin) = toolchain_bin(&cwd)?;
     let name = command.unwrap_or_else(|| dist.binary().to_string());
-    let path = bin.join(&name);
-    if crate::exec::is_executable(&path) {
+    if let Some(path) = crate::exec::find_in_dir(&bin, &name) {
         println!("{}", path.display());
         return Ok(());
     }

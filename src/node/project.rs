@@ -51,7 +51,7 @@ fn prepended_path(dirs: &[PathBuf]) -> Result<std::ffi::OsString> {
 fn npm(root: &Path) -> Result<Command> {
     let version = store::required_toolchain(super::LANGUAGE, root)?;
     let bin = super::dist::bin_dir(&super::toolchain_path(&version)?);
-    let mut cmd = Command::new(bin.join("npm"));
+    let mut cmd = Command::new(bin.join(super::dist::npm_exe()));
     cmd.current_dir(root).env("PATH", prepended_path(&[bin])?);
     Ok(cmd)
 }
@@ -145,8 +145,7 @@ pub fn which(command: Option<String>) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let name = command.unwrap_or_else(|| "node".to_string());
     for dir in managed_bin_dirs(&cwd)? {
-        let path = dir.join(&name);
-        if crate::exec::is_executable(&path) {
+        if let Some(path) = crate::exec::find_in_dir(&dir, &name) {
             println!("{}", path.display());
             return Ok(());
         }

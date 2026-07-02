@@ -38,7 +38,7 @@ fn prepended_path(dirs: &[PathBuf]) -> Result<std::ffi::OsString> {
 /// The pinned toolchain's `go`, with its bin dir on PATH.
 fn go(dir: &Path) -> Result<Command> {
     let bin = toolchain_bin(dir)?;
-    let mut cmd = Command::new(bin.join("go"));
+    let mut cmd = Command::new(bin.join(crate::exec::exe("go")));
     cmd.current_dir(dir).env("PATH", prepended_path(&[bin])?);
     Ok(cmd)
 }
@@ -88,7 +88,7 @@ pub fn init(module: Option<String>) -> Result<()> {
     // Not the go() helper: the pin this project will use is written below,
     // so resolve the command from the picked version directly.
     let bin = super::dist::bin_dir(&super::toolchain_path(&version)?);
-    let mut cmd = Command::new(bin.join("go"));
+    let mut cmd = Command::new(bin.join(crate::exec::exe("go")));
     cmd.current_dir(&cwd).env("PATH", prepended_path(&[bin])?);
     run_checked(cmd.args(["mod", "init", &module]), "go mod init")?;
 
@@ -129,8 +129,7 @@ pub fn sync() -> Result<()> {
 pub fn which(command: Option<String>) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let name = command.unwrap_or_else(|| "go".to_string());
-    let path = toolchain_bin(&cwd)?.join(&name);
-    if crate::exec::is_executable(&path) {
+    if let Some(path) = crate::exec::find_in_dir(&toolchain_bin(&cwd)?, &name) {
         println!("{}", path.display());
         return Ok(());
     }

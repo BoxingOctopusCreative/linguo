@@ -20,6 +20,15 @@ automatically when you `cd` into a project:
 eval "$(linguo activate zsh)"   # or bash / fish
 ```
 
+On Windows (PowerShell), add this to your `$PROFILE` instead:
+
+```powershell
+linguo activate powershell | Out-String | Invoke-Expression
+```
+
+Windows is supported for Python, Node.js, Go, and Terraform/OpenTofu; Ruby is
+not yet available there (no upstream relocatable Windows builds).
+
 ## Usage
 
 ```sh
