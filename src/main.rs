@@ -7,6 +7,7 @@ mod python;
 mod shell;
 mod status;
 mod store;
+mod terraform;
 mod versions;
 
 use clap::{Parser, Subcommand};
@@ -40,6 +41,12 @@ enum Command {
     Go {
         #[command(subcommand)]
         command: GoCommand,
+    },
+    /// Manage Terraform toolchains
+    #[command(alias = "tf")]
+    Terraform {
+        #[command(subcommand)]
+        command: TerraformCommand,
     },
     /// Overview of all languages: installed toolchains and active pins
     #[command(alias = "list")]
@@ -159,6 +166,33 @@ enum GoCommand {
     },
 }
 
+#[derive(Subcommand)]
+enum TerraformCommand {
+    /// Download and install a toolchain (latest stable if no version is given)
+    Install { version: Option<String> },
+    /// Remove an installed toolchain
+    Uninstall { version: String },
+    /// List installed toolchains
+    List {
+        /// List versions available for download instead
+        #[arg(long)]
+        available: bool,
+    },
+    /// Pin a version for this directory (or globally)
+    Use {
+        version: String,
+        #[arg(long)]
+        global: bool,
+    },
+    /// Show which executable a command resolves to (default: terraform)
+    Which { command: Option<String> },
+    /// Run a command with the pinned toolchain on PATH
+    Run {
+        #[arg(trailing_var_arg = true, required = true)]
+        args: Vec<String>,
+    },
+}
+
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
@@ -203,6 +237,18 @@ fn main() -> anyhow::Result<()> {
             GoCommand::Sync => go::project::sync(),
             GoCommand::Which { command } => go::project::which(command),
             GoCommand::Run { args } => go::project::run(&args),
+        },
+        Command::Terraform { command } => match command {
+            TerraformCommand::Install { version } => terraform::install(version),
+            TerraformCommand::Uninstall { version } => {
+                store::uninstall(terraform::LANGUAGE, &version)
+            }
+            TerraformCommand::List { available } => terraform::list(available),
+            TerraformCommand::Use { version, global } => {
+                store::use_version(terraform::LANGUAGE, &version, global)
+            }
+            TerraformCommand::Which { command } => terraform::which(command),
+            TerraformCommand::Run { args } => terraform::run(&args),
         },
         Command::Status => status::status(),
         Command::Activate { shell } => {

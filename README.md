@@ -3,9 +3,9 @@
 Cross-platform, multi-language runtime, package, and project manager — think
 uv, but for Python, Go, Node.js, Ruby, Rust, and Terraform.
 
-Commands follow the shape `linguo <language> <command>`. Python, Node.js, and
-Go are supported so far; the other languages will follow the same command
-surface.
+Commands follow the shape `linguo <language> <command>`. Python, Node.js, Go,
+and Terraform are supported so far; the other languages will follow the same
+command surface.
 
 ## Install
 
@@ -56,6 +56,12 @@ linguo go install                 # latest stable if no version is given
 linguo go init my-module
 linguo go add rsc.io/quote
 linguo go run -- go build ./...
+
+# Terraform is runtime-only (providers/modules stay terraform's job);
+# builds come from releases.hashicorp.com, sha256-verified
+linguo terraform install 1.13    # `linguo tf ...` works too
+linguo tf use 1.13
+linguo tf run -- terraform plan
 ```
 
 Version pins live in `linguo.toml`:
