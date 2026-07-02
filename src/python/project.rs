@@ -114,7 +114,9 @@ fn dependencies_array(doc: &mut DocumentMut) -> Result<&mut Array> {
 
 /// Add or replace requirement specs in `[project] dependencies`.
 fn add_to_dependencies(pyproject: &str, specs: &[String]) -> Result<String> {
-    let mut doc: DocumentMut = pyproject.parse().context("failed to parse pyproject.toml")?;
+    let mut doc: DocumentMut = pyproject
+        .parse()
+        .context("failed to parse pyproject.toml")?;
     let deps = dependencies_array(&mut doc)?;
     for spec in specs {
         let name = spec_name(spec);
@@ -133,18 +135,19 @@ fn add_to_dependencies(pyproject: &str, specs: &[String]) -> Result<String> {
 
 /// Remove packages (by name) from `[project] dependencies`.
 fn remove_from_dependencies(pyproject: &str, names: &[String]) -> Result<String> {
-    let mut doc: DocumentMut = pyproject.parse().context("failed to parse pyproject.toml")?;
+    let mut doc: DocumentMut = pyproject
+        .parse()
+        .context("failed to parse pyproject.toml")?;
     let deps = dependencies_array(&mut doc)?;
     let targets: Vec<String> = names.iter().map(|n| spec_name(n)).collect();
-    deps.retain(|d| {
-        d.as_str()
-            .is_none_or(|s| !targets.contains(&spec_name(s)))
-    });
+    deps.retain(|d| d.as_str().is_none_or(|s| !targets.contains(&spec_name(s))));
     Ok(doc.to_string())
 }
 
 fn read_dependencies(pyproject: &str) -> Result<Vec<String>> {
-    let doc: DocumentMut = pyproject.parse().context("failed to parse pyproject.toml")?;
+    let doc: DocumentMut = pyproject
+        .parse()
+        .context("failed to parse pyproject.toml")?;
     Ok(doc
         .get("project")
         .and_then(|p| p.get("dependencies"))

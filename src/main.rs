@@ -14,7 +14,11 @@ use clap::{Parser, Subcommand};
 use shell::Shell;
 
 #[derive(Parser)]
-#[command(name = "linguo", version, about = "Multi-language runtime, package, and project manager")]
+#[command(
+    name = "linguo",
+    version,
+    about = "Multi-language runtime, package, and project manager"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,

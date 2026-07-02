@@ -81,7 +81,10 @@ pub fn fetch_available() -> Result<Vec<AvailableBuild>> {
         .filter_map(|release| {
             let version = parse_go_version(&release.version)?;
             let file = release.files.into_iter().find(|f| {
-                f.os == os && f.arch == arch && f.kind == "archive" && f.filename.ends_with(".tar.gz")
+                f.os == os
+                    && f.arch == arch
+                    && f.kind == "archive"
+                    && f.filename.ends_with(".tar.gz")
             })?;
             Some(AvailableBuild {
                 version,

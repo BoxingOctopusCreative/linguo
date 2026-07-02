@@ -55,9 +55,9 @@ fn read_pin_from(path: &Path, language: &str) -> Result<Option<VersionReq>> {
     else {
         return Ok(None);
     };
-    let req = raw.parse().with_context(|| {
-        format!("invalid {language} version '{raw}' in {}", path.display())
-    })?;
+    let req = raw
+        .parse()
+        .with_context(|| format!("invalid {language} version '{raw}' in {}", path.display()))?;
     Ok(Some(req))
 }
 

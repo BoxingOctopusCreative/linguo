@@ -108,7 +108,10 @@ mod tests {
             ),
             Some("abc123".to_string())
         );
-        assert_eq!(find_sha256(sums, "other.tar.gz"), Some("def456".to_string()));
+        assert_eq!(
+            find_sha256(sums, "other.tar.gz"),
+            Some("def456".to_string())
+        );
         assert_eq!(find_sha256(sums, "missing.tar.gz"), None);
     }
 }
