@@ -144,6 +144,16 @@ Roughly in order:
 - **Workspace/monorepo ergonomics** — one `linguo sync` for a repo pinning
   several languages at once.
 
+## After 1.0
+
+- **Developer tool management** — install linters, formatters, and test
+  runners through linguo (`linguo python tool install ruff`,
+  `linguo node tool install eslint`, `linguo go tool install golangci-lint`,
+  ...), each in its own isolated environment with its executables on PATH —
+  pipx / `uv tool` semantics, but for every managed language. Tools would pin
+  and upgrade like runtimes do, so a repo can declare its lint stack the same
+  way it declares its toolchains.
+
 ## Contributing
 
 `cargo test` runs the unit suite; CI additionally runs an end-to-end smoke
