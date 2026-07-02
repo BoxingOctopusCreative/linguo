@@ -4,6 +4,7 @@ mod fetch;
 mod node;
 mod python;
 mod shell;
+mod status;
 mod store;
 mod versions;
 
@@ -30,6 +31,9 @@ enum Command {
         #[command(subcommand)]
         command: NodeCommand,
     },
+    /// Overview of all languages: installed toolchains and active pins
+    #[command(alias = "list")]
+    Status,
     /// Print the shell hook (add `eval "$(linguo activate zsh)"` to your rc file)
     Activate { shell: Shell },
     /// Print PATH updates for the current directory (used by the shell hook)
@@ -141,6 +145,7 @@ fn main() -> anyhow::Result<()> {
             NodeCommand::Which { command } => node::project::which(command),
             NodeCommand::Run { args } => node::project::run(&args),
         },
+        Command::Status => status::status(),
         Command::Activate { shell } => {
             shell::activate(shell);
             Ok(())

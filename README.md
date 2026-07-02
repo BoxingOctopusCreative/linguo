@@ -23,6 +23,9 @@ eval "$(linguo activate zsh)"   # or bash / fish
 ## Usage
 
 ```sh
+# Cross-language overview: installed toolchains + what's active here
+linguo status                     # `linguo list` works too
+
 # Runtime management (builds from python-build-standalone, sha256-verified)
 linguo python install 3.12        # or omit the version for the latest
 linguo python list                # --available to list downloadable versions
