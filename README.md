@@ -1,6 +1,6 @@
 # Linguo
 
-Linguo is a cross-platform, multi-language runtime, package, and project manager — think
+Linguo is a cross-platform, multi-language runtime, package, and project manager: think
 [`uv`](https://github.com/astral-sh/uv), but for **Python, Node.js, Ruby, Rust, Go, and Terraform/OpenTofu**.
 
 One binary manages runtime versions, per-project pins, and project workflows
@@ -50,8 +50,8 @@ linguo activate powershell | Out-String | Invoke-Expression
 
 Optionally, let the hook install unsatisfied pins on the spot (cd into a
 fresh clone and the pinned toolchains just appear). It's off by default and
-gated on the machine-level config — a cloned repo can't trigger downloads by
-itself — and failed attempts back off for 5 minutes so an unreachable
+gated on the machine-level config (a cloned repo can't trigger downloads by
+itself), and failed attempts back off for 5 minutes so an unreachable
 upstream never stalls your prompt:
 
 ```toml
@@ -83,8 +83,8 @@ linguo upgrade                    # all languages pinned in this directory
 ```
 
 And, where the language has a project/package layer, the uv-style project
-commands (each drives the ecosystem's native tool — pip, npm, bundler, cargo,
-go — rather than reimplementing it):
+commands (each drives the ecosystem's native tool, whether pip, npm, bundler,
+cargo, or go, rather than reimplementing it):
 
 ```sh
 linguo python init                # pyproject.toml + linguo.toml pin + .venv
@@ -123,9 +123,9 @@ Requests can be a major (`24`), minor (`3.12`), or exact (`1.96.1`) version;
 the highest installed match wins.
 
 Existing projects work without a `linguo.toml`: when none covers a language,
-linguo honors the ecosystem's own pin file — `.python-version`, `.nvmrc` /
+linguo honors the ecosystem's own pin file (`.python-version`, `.nvmrc` /
 `.node-version`, `.ruby-version`, go.mod's `toolchain`/`go` directives, and
-`rust-toolchain(.toml)` — as long as it holds a plain version (aliases like
+`rust-toolchain(.toml)`), as long as it holds a plain version (aliases like
 `lts/*` or `stable` are ignored). Precedence: project `linguo.toml`, then the
 ecosystem pin file, then the global config.
 
@@ -133,26 +133,26 @@ ecosystem pin file, then the global config.
 
 Roughly in order:
 
-- **Rust channels and components** — nightly/beta toolchains, extra
+- **Rust channels and components**: nightly/beta toolchains, extra
   components (`rust-analyzer`, `rust-src`), and cross-compilation targets
   from the same dist manifests.
-- **Ruby on more platforms** — musl Linux builds (already published by
+- **Ruby on more platforms**: musl Linux builds (already published by
   rv-ruby), and a Windows story (RubyInstaller-based).
-- **Windows arm64 binaries** — the backends already map the targets; needs a
+- **Windows arm64 binaries**: the backends already map the targets; needs a
   release lane and CI coverage.
 - **A curl-able install script** (and eventually a Homebrew formula) for
-  platforms not covered by the deb/rpm/MSI packages — updating linguo itself
+  platforms not covered by the deb/rpm/MSI packages; updating linguo itself
   stays the package manager's job.
-- **Workspace/monorepo ergonomics** — one `linguo sync` for a repo pinning
+- **Workspace/monorepo ergonomics**: one `linguo sync` for a repo pinning
   several languages at once.
 
 ## After 1.0
 
-- **Developer tool management** — install linters, formatters, and test
+- **Developer tool management**: install linters, formatters, and test
   runners through linguo (`linguo python tool install ruff`,
   `linguo node tool install eslint`, `linguo go tool install golangci-lint`,
-  ...), each in its own isolated environment with its executables on PATH —
-  pipx / `uv tool` semantics, but for every managed language. Tools would pin
+  ...), each in its own isolated environment with its executables on PATH.
+  That's pipx / `uv tool` semantics, but for every managed language. Tools would pin
   and upgrade like runtimes do, so a repo can declare its lint stack the same
   way it declares its toolchains.
 
