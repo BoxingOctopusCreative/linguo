@@ -204,6 +204,73 @@ pub fn use_version(raw: &str, global: bool) -> Result<()> {
     Ok(())
 }
 
+/// Upgrade within the pinned distribution: newest release within the pin,
+/// or — with `latest` — bump the pin to the newest at the same granularity.
+pub fn upgrade(latest: bool, prune: bool) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    let Some(pin) = config::resolve_pin(LANGUAGE, &cwd)? else {
+        bail!("no terraform version pinned (run `linguo terraform use <version>`)");
+    };
+    let spec = pin_spec(&pin)?;
+    let key = spec.dist.store_key();
+    let builds = dist::fetch_available(spec.dist)?;
+    let available: Vec<Version> = builds.iter().map(|b| b.version).collect();
+    let newest = available
+        .last()
+        .copied()
+        .context("no releases available for this platform")?;
+
+    let (target_req, target) = match (&spec.req, latest) {
+        (None, _) => (None, newest),
+        (Some(req), false) => {
+            let target = req
+                .best_match(available.iter().copied())
+                .with_context(|| format!("no available release matches '{req}'"))?;
+            (Some(*req), target)
+        }
+        (Some(req), true) => {
+            let bumped = store::granularity_bump(req, newest);
+            let target = bumped
+                .best_match(available.iter().copied())
+                .with_context(|| format!("no available release matches '{bumped}'"))?;
+            (Some(bumped), target)
+        }
+    };
+
+    if latest && target_req != spec.req {
+        let new_spec = Spec {
+            dist: spec.dist,
+            req: target_req,
+        };
+        store::write_pin_back(LANGUAGE, &pin, &new_spec.to_string())?;
+        println!("bumped terraform pin {} -> {new_spec}", pin.raw);
+    }
+
+    if toolchain_path(spec.dist, &target)?.exists() {
+        println!(
+            "{} is already installed and is the newest matching release",
+            display_version(spec.dist, &target)
+        );
+    } else {
+        let exact = Spec {
+            dist: spec.dist,
+            req: Some(VersionReq::Exact(target)),
+        };
+        install(Some(exact.to_string()))?;
+    }
+
+    if prune {
+        let mut reqs: Vec<VersionReq> = Vec::new();
+        reqs.extend(spec.req);
+        reqs.extend(target_req);
+        if reqs.is_empty() {
+            reqs.push(VersionReq::Major(target.major));
+        }
+        store::prune_older(key, &reqs, target)?;
+    }
+    Ok(())
+}
+
 /// All installed toolchains across both distributions, ascending per
 /// distribution (terraform first).
 fn installed() -> Result<Vec<(Distribution, Version)>> {

@@ -61,6 +61,13 @@ linguo <lang> uninstall 3.12.4
 linguo <lang> which [command]     # path a command resolves to
 linguo <lang> run -- <command>    # run with the pinned toolchain on PATH
 linguo status                     # cross-language overview (alias: linguo list)
+
+# Upgrades: newest release within the pin by default, or bump the pin itself
+linguo node upgrade               # pin "22" -> installs the newest 22.x
+linguo node upgrade --latest      # bumps the pin (22 -> 24) and installs it,
+                                  # rewriting whichever file held the pin
+linguo node upgrade --prune       # also uninstall the superseded toolchains
+linguo upgrade                    # all languages pinned in this directory
 ```
 
 And, where the language has a project/package layer, the uv-style project
@@ -114,8 +121,6 @@ ecosystem pin file, then the global config.
 
 Roughly in order:
 
-- **`linguo <lang> upgrade`** — bump a pin (and install the newer toolchain)
-  in one step; prune superseded toolchains.
 - **Auto-install on activation** — opt-in: entering a project with an
   unsatisfied pin installs it instead of erroring.
 - **Rust channels and components** — nightly/beta toolchains, extra

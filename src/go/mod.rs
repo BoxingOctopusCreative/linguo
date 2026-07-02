@@ -19,6 +19,14 @@ pub fn resolve_active(cwd: &Path) -> Result<Option<(Pin, Version)>> {
     store::resolve_active(LANGUAGE, cwd)
 }
 
+pub fn upgrade(latest: bool, prune: bool) -> Result<()> {
+    let available: Vec<Version> = dist::fetch_available()?.iter().map(|b| b.version).collect();
+    let newest = available.last().copied();
+    store::upgrade(LANGUAGE, &available, newest, latest, prune, &|v| {
+        install(Some(v.to_string()))
+    })
+}
+
 /// Parse a version request out of go.mod: the `toolchain go1.x.y` directive
 /// wins over the `go 1.x[.y]` minimum-version directive.
 fn go_mod_version(text: &str) -> Option<String> {

@@ -63,6 +63,15 @@ enum Command {
     /// Overview of all languages: installed toolchains and active pins
     #[command(alias = "list")]
     Status,
+    /// Upgrade every language pinned in this directory
+    Upgrade {
+        /// Bump each pin to the newest stable release (same granularity)
+        #[arg(long)]
+        latest: bool,
+        /// Uninstall older toolchains the pins previously matched
+        #[arg(long)]
+        prune: bool,
+    },
     /// Print the shell hook (add `eval "$(linguo activate zsh)"` to your rc file)
     Activate { shell: Shell },
     /// Print PATH updates for the current directory (used by the shell hook)
@@ -90,6 +99,16 @@ enum PythonCommand {
         version: String,
         #[arg(long)]
         global: bool,
+    },
+    /// Upgrade the pinned toolchain: newest release within the pin, or bump
+    /// the pin itself with --latest
+    Upgrade {
+        /// Bump the pin to the newest stable release (same granularity)
+        #[arg(long)]
+        latest: bool,
+        /// Uninstall older toolchains the pin previously matched
+        #[arg(long)]
+        prune: bool,
     },
     /// Create a new project: pyproject.toml, version pin, and venv
     Init { name: Option<String> },
@@ -126,6 +145,16 @@ enum NodeCommand {
         #[arg(long)]
         global: bool,
     },
+    /// Upgrade the pinned toolchain: newest release within the pin, or bump
+    /// the pin itself with --latest
+    Upgrade {
+        /// Bump the pin to the newest stable release (same granularity)
+        #[arg(long)]
+        latest: bool,
+        /// Uninstall older toolchains the pin previously matched
+        #[arg(long)]
+        prune: bool,
+    },
     /// Create a new project: package.json and version pin
     Init { name: Option<String> },
     /// npm install packages into the project
@@ -160,6 +189,16 @@ enum GoCommand {
         version: String,
         #[arg(long)]
         global: bool,
+    },
+    /// Upgrade the pinned toolchain: newest release within the pin, or bump
+    /// the pin itself with --latest
+    Upgrade {
+        /// Bump the pin to the newest stable release (same granularity)
+        #[arg(long)]
+        latest: bool,
+        /// Uninstall older toolchains the pin previously matched
+        #[arg(long)]
+        prune: bool,
     },
     /// Create a new module: go mod init and version pin
     Init { module: Option<String> },
@@ -196,6 +235,16 @@ enum RubyCommand {
         #[arg(long)]
         global: bool,
     },
+    /// Upgrade the pinned toolchain: newest release within the pin, or bump
+    /// the pin itself with --latest
+    Upgrade {
+        /// Bump the pin to the newest stable release (same granularity)
+        #[arg(long)]
+        latest: bool,
+        /// Uninstall older toolchains the pin previously matched
+        #[arg(long)]
+        prune: bool,
+    },
     /// Create a new project: Gemfile and version pin
     Init,
     /// bundle add gems to the project
@@ -230,6 +279,16 @@ enum RustCommand {
         version: String,
         #[arg(long)]
         global: bool,
+    },
+    /// Upgrade the pinned toolchain: newest release within the pin, or bump
+    /// the pin itself with --latest
+    Upgrade {
+        /// Bump the pin to the newest stable release (same granularity)
+        #[arg(long)]
+        latest: bool,
+        /// Uninstall older toolchains the pin previously matched
+        #[arg(long)]
+        prune: bool,
     },
     /// Create a new project: cargo init and version pin
     Init { name: Option<String> },
@@ -266,6 +325,16 @@ enum TerraformCommand {
         #[arg(long)]
         global: bool,
     },
+    /// Upgrade the pinned toolchain: newest release within the pin, or bump
+    /// the pin itself with --latest
+    Upgrade {
+        /// Bump the pin to the newest stable release (same granularity)
+        #[arg(long)]
+        latest: bool,
+        /// Uninstall older toolchains the pin previously matched
+        #[arg(long)]
+        prune: bool,
+    },
     /// Show which executable a command resolves to (default: terraform)
     Which { command: Option<String> },
     /// Run a command with the pinned toolchain on PATH
@@ -273,6 +342,47 @@ enum TerraformCommand {
         #[arg(trailing_var_arg = true, required = true)]
         args: Vec<String>,
     },
+}
+
+/// Upgrade every language with a resolvable pin in the current directory.
+fn upgrade_all(latest: bool, prune: bool) -> anyhow::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let mut failures: Vec<String> = Vec::new();
+    let mut any = false;
+    type UpgradeFn = fn(bool, bool) -> anyhow::Result<()>;
+    let languages: [(&str, UpgradeFn); 5] = [
+        (python::LANGUAGE, python::upgrade),
+        (node::LANGUAGE, node::upgrade),
+        (ruby::LANGUAGE, ruby::upgrade),
+        (go::LANGUAGE, go::upgrade),
+        (rust::LANGUAGE, rust::upgrade),
+    ];
+    for (language, upgrade) in languages {
+        if store::resolve_pin(language, &cwd)?.is_none() {
+            continue;
+        }
+        any = true;
+        println!("{language}:");
+        if let Err(err) = upgrade(latest, prune) {
+            eprintln!("  {err:#}");
+            failures.push(language.to_string());
+        }
+    }
+    if config::resolve_pin(terraform::LANGUAGE, &cwd)?.is_some() {
+        any = true;
+        println!("terraform:");
+        if let Err(err) = terraform::upgrade(latest, prune) {
+            eprintln!("  {err:#}");
+            failures.push("terraform".to_string());
+        }
+    }
+    if !any {
+        println!("nothing pinned here (run `linguo <language> use <version>` first)");
+    }
+    if !failures.is_empty() {
+        anyhow::bail!("upgrade failed for: {}", failures.join(", "));
+    }
+    Ok(())
 }
 
 fn main() -> anyhow::Result<()> {
@@ -285,6 +395,7 @@ fn main() -> anyhow::Result<()> {
             PythonCommand::Use { version, global } => {
                 store::use_version(python::LANGUAGE, &version, global)
             }
+            PythonCommand::Upgrade { latest, prune } => python::upgrade(latest, prune),
             PythonCommand::Init { name } => python::project::init(name),
             PythonCommand::Add { packages } => python::project::add(&packages),
             PythonCommand::Remove { packages } => python::project::remove(&packages),
@@ -299,6 +410,7 @@ fn main() -> anyhow::Result<()> {
             NodeCommand::Use { version, global } => {
                 store::use_version(node::LANGUAGE, &version, global)
             }
+            NodeCommand::Upgrade { latest, prune } => node::upgrade(latest, prune),
             NodeCommand::Init { name } => node::project::init(name),
             NodeCommand::Add { packages } => node::project::add(&packages),
             NodeCommand::Remove { packages } => node::project::remove(&packages),
@@ -313,6 +425,7 @@ fn main() -> anyhow::Result<()> {
             GoCommand::Use { version, global } => {
                 store::use_version(go::LANGUAGE, &version, global)
             }
+            GoCommand::Upgrade { latest, prune } => go::upgrade(latest, prune),
             GoCommand::Init { module } => go::project::init(module),
             GoCommand::Add { packages } => go::project::add(&packages),
             GoCommand::Remove { packages } => go::project::remove(&packages),
@@ -327,6 +440,7 @@ fn main() -> anyhow::Result<()> {
             RubyCommand::Use { version, global } => {
                 store::use_version(ruby::LANGUAGE, &version, global)
             }
+            RubyCommand::Upgrade { latest, prune } => ruby::upgrade(latest, prune),
             RubyCommand::Init => ruby::project::init(),
             RubyCommand::Add { gems } => ruby::project::add(&gems),
             RubyCommand::Remove { gems } => ruby::project::remove(&gems),
@@ -341,6 +455,7 @@ fn main() -> anyhow::Result<()> {
             RustCommand::Use { version, global } => {
                 store::use_version(rust::LANGUAGE, &version, global)
             }
+            RustCommand::Upgrade { latest, prune } => rust::upgrade(latest, prune),
             RustCommand::Init { name } => rust::project::init(name),
             RustCommand::Add { crates } => rust::project::add(&crates),
             RustCommand::Remove { crates } => rust::project::remove(&crates),
@@ -353,10 +468,12 @@ fn main() -> anyhow::Result<()> {
             TerraformCommand::Uninstall { version } => terraform::uninstall(&version),
             TerraformCommand::List { available } => terraform::list(available),
             TerraformCommand::Use { version, global } => terraform::use_version(&version, global),
+            TerraformCommand::Upgrade { latest, prune } => terraform::upgrade(latest, prune),
             TerraformCommand::Which { command } => terraform::which(command),
             TerraformCommand::Run { args } => terraform::run(&args),
         },
         Command::Status => status::status(),
+        Command::Upgrade { latest, prune } => upgrade_all(latest, prune),
         Command::Activate { shell } => {
             shell::activate(shell);
             Ok(())

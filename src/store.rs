@@ -134,6 +134,141 @@ pub fn pick_project_version(language: &str, dir: &Path) -> Result<Version> {
     }
 }
 
+/// The newest release's version at the same granularity as `req`:
+/// `3.12` bumps to `3.13`, `24` to `26`, `1.96.0` to `1.96.1`.
+pub fn granularity_bump(req: &VersionReq, newest: Version) -> VersionReq {
+    match req {
+        VersionReq::Major(_) => VersionReq::Major(newest.major),
+        VersionReq::MajorMinor(..) => VersionReq::MajorMinor(newest.major, newest.minor),
+        VersionReq::Exact(_) => VersionReq::Exact(newest),
+    }
+}
+
+/// Replace the version line of a single-value pin file (`.nvmrc`,
+/// `.python-version`, ...), preserving comments and other lines.
+fn rewrite_version_file(path: &Path, value: &str) -> Result<()> {
+    let text = std::fs::read_to_string(path)
+        .with_context(|| format!("failed to read {}", path.display()))?;
+    let mut replaced = false;
+    let mut lines: Vec<&str> = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if !replaced && !trimmed.is_empty() && !trimmed.starts_with('#') {
+            lines.push(value);
+            replaced = true;
+        } else {
+            lines.push(line);
+        }
+    }
+    if !replaced {
+        lines.push(value);
+    }
+    std::fs::write(path, format!("{}\n", lines.join("\n")))
+        .with_context(|| format!("failed to write {}", path.display()))
+}
+
+/// Update `channel` in a rust-toolchain.toml, preserving everything else.
+fn rewrite_rust_toolchain_toml(path: &Path, value: &str) -> Result<()> {
+    let text = std::fs::read_to_string(path)
+        .with_context(|| format!("failed to read {}", path.display()))?;
+    let mut doc: toml_edit::DocumentMut = text
+        .parse()
+        .with_context(|| format!("failed to parse {}", path.display()))?;
+    doc["toolchain"]["channel"] = toml_edit::value(value);
+    std::fs::write(path, doc.to_string())
+        .with_context(|| format!("failed to write {}", path.display()))
+}
+
+/// Write a new value to wherever a pin came from. Single-line version files
+/// and rust-toolchain(.toml) are rewritten in place; go.mod is owned by the
+/// go tool and refused.
+pub fn write_pin_back(language: &str, pin: &Pin, value: &str) -> Result<()> {
+    match &pin.source {
+        PinSource::Global => config::write_pin(
+            &config::linguo_root()?.join(config::GLOBAL_CONFIG),
+            language,
+            value,
+        ),
+        PinSource::Project(path) => match path.file_name().and_then(|n| n.to_str()) {
+            Some(config::PIN_FILE) => config::write_pin(path, language, value),
+            Some(".python-version" | ".nvmrc" | ".node-version" | ".ruby-version")
+            | Some("rust-toolchain") => rewrite_version_file(path, value),
+            Some("rust-toolchain.toml") => rewrite_rust_toolchain_toml(path, value),
+            Some("go.mod") => bail!(
+                "the pin comes from go.mod, which the go tool owns; bump it there or run `linguo go use {value}`"
+            ),
+            _ => bail!("cannot update pin source {}", path.display()),
+        },
+    }
+}
+
+/// Uninstall installed versions older than `keep` that any of `reqs` match.
+pub fn prune_older(language: &str, reqs: &[VersionReq], keep: Version) -> Result<()> {
+    let stale: Vec<Version> = installed_versions(language)?
+        .into_iter()
+        .filter(|v| *v < keep && reqs.iter().any(|r| r.matches(v)))
+        .collect();
+    if stale.is_empty() {
+        println!("nothing to prune");
+        return Ok(());
+    }
+    for version in stale {
+        uninstall(language, &version.to_string())?;
+    }
+    Ok(())
+}
+
+/// Upgrade the pinned toolchain: newest release within the pin, or — with
+/// `latest` — bump the pin to the newest release at the same granularity.
+/// `newest` is the version `--latest` targets (e.g. node's latest LTS).
+pub fn upgrade(
+    language: &str,
+    available: &[Version],
+    newest: Option<Version>,
+    latest: bool,
+    prune: bool,
+    install: &dyn Fn(&str) -> Result<()>,
+) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    let Some(pin) = resolve_pin(language, &cwd)? else {
+        bail!("no {language} version pinned (run `linguo {language} use <version>`)");
+    };
+    let req = pin_req(language, &pin)?;
+
+    let target_req = if latest {
+        let newest = newest.context("no releases available for this platform")?;
+        granularity_bump(&req, newest)
+    } else {
+        req
+    };
+    let target = target_req
+        .best_match(available.iter().copied())
+        .with_context(|| format!("no available release matches '{target_req}'"))?;
+
+    if latest && target_req != req {
+        write_pin_back(language, &pin, &target_req.to_string())?;
+        let source = match &pin.source {
+            PinSource::Project(path) => path.display().to_string(),
+            PinSource::Global => "the global config".to_string(),
+        };
+        println!("bumped {language} pin {req} -> {target_req} in {source}");
+    }
+
+    if toolchain_path(language, &target)?.exists() {
+        println!("{language} {target} is already installed and is the newest {target_req} release");
+        if !latest && matches!(req, VersionReq::Exact(_)) {
+            println!("note: the pin is exact; use `--latest` to bump it");
+        }
+    } else {
+        install(&target.to_string())?;
+    }
+
+    if prune {
+        prune_older(language, &[req, target_req], target)?;
+    }
+    Ok(())
+}
+
 pub fn uninstall(language: &str, raw: &str) -> Result<()> {
     let req: VersionReq = raw.parse()?;
     let version = match req {
@@ -210,6 +345,43 @@ mod tests {
 
     fn write(dir: &Path, name: &str, content: &str) {
         std::fs::write(dir.join(name), content).unwrap();
+    }
+
+    #[test]
+    fn granularity_bump_preserves_pin_style() {
+        let newest: Version = "3.13.2".parse().unwrap();
+        let bump = |s: &str| granularity_bump(&s.parse().unwrap(), newest).to_string();
+        assert_eq!(bump("3"), "3");
+        assert_eq!(bump("2"), "3");
+        assert_eq!(bump("3.12"), "3.13");
+        assert_eq!(bump("3.12.4"), "3.13.2");
+    }
+
+    #[test]
+    fn version_file_rewrite_preserves_comments() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join(".nvmrc");
+        std::fs::write(&path, "# pinned for CI\n22\n").unwrap();
+        rewrite_version_file(&path, "24").unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "# pinned for CI\n24\n"
+        );
+    }
+
+    #[test]
+    fn rust_toolchain_toml_rewrite_preserves_structure() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("rust-toolchain.toml");
+        std::fs::write(
+            &path,
+            "[toolchain]\nchannel = \"1.96\"\ncomponents = [\"rustfmt\"]\n",
+        )
+        .unwrap();
+        rewrite_rust_toolchain_toml(&path, "1.97").unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains("channel = \"1.97\""));
+        assert!(text.contains("components = [\"rustfmt\"]"));
     }
 
     /// One test so the LINGUO_ROOT override can't race across threads.

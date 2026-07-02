@@ -19,6 +19,21 @@ pub fn resolve_active(cwd: &Path) -> Result<Option<(Pin, Version)>> {
     store::resolve_active(LANGUAGE, cwd)
 }
 
+pub fn upgrade(latest: bool, prune: bool) -> Result<()> {
+    let builds = dist::fetch_available()?;
+    let available: Vec<Version> = builds.iter().map(|b| b.version).collect();
+    // --latest targets the newest LTS line, matching the install default.
+    let newest = builds
+        .iter()
+        .rev()
+        .find(|b| b.lts.is_some())
+        .or(builds.last())
+        .map(|b| b.version);
+    store::upgrade(LANGUAGE, &available, newest, latest, prune, &|v| {
+        install(Some(v.to_string()))
+    })
+}
+
 /// nvm/nodenv convention: the nearest `.nvmrc` or `.node-version` holding a
 /// plain version (optionally `v`-prefixed). Aliases like `lts/*` or `node`
 /// can't map to a pinned install and count as no pin.

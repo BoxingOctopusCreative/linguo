@@ -3,7 +3,7 @@ pub mod project;
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 
 use crate::config::Pin;
 use crate::store;
@@ -45,6 +45,31 @@ fn read_toolchain_file(dir: &Path) -> Result<Option<(String, PathBuf)>> {
         }
     }
     Ok(None)
+}
+
+/// Upgrade via the channel manifests, so point releases are found even when
+/// the GitHub release listing lags.
+pub fn upgrade(latest: bool, prune: bool) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    let Some(pin) = store::resolve_pin(LANGUAGE, &cwd)? else {
+        bail!("no rust version pinned (run `linguo rust use <version>`)");
+    };
+    let req: VersionReq = pin
+        .raw
+        .parse()
+        .with_context(|| format!("invalid rust version '{}' pinned", pin.raw))?;
+    let channel = if latest {
+        "stable".to_string()
+    } else {
+        match req {
+            VersionReq::Major(_) => "stable".to_string(),
+            other => other.to_string(),
+        }
+    };
+    let (target, _) = dist::fetch_manifest(&channel)?;
+    store::upgrade(LANGUAGE, &[target], Some(target), latest, prune, &|v| {
+        install(Some(v.to_string()))
+    })
 }
 
 /// rustup convention: the nearest rust-toolchain(.toml) whose channel is a

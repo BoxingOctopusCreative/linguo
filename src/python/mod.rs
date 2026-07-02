@@ -19,6 +19,14 @@ pub fn resolve_active(cwd: &Path) -> Result<Option<(Pin, Version)>> {
     store::resolve_active(LANGUAGE, cwd)
 }
 
+pub fn upgrade(latest: bool, prune: bool) -> Result<()> {
+    let available: Vec<Version> = dist::fetch_available()?.iter().map(|b| b.version).collect();
+    let newest = available.last().copied();
+    store::upgrade(LANGUAGE, &available, newest, latest, prune, &|v| {
+        install(Some(v.to_string()))
+    })
+}
+
 /// pyenv convention: the nearest `.python-version` holding a plain version.
 pub fn fallback_pin(cwd: &Path) -> Result<Option<Pin>> {
     for dir in cwd.ancestors() {
