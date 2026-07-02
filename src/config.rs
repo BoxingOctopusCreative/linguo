@@ -69,6 +69,24 @@ pub fn project_pin(language: &str, cwd: &Path) -> Result<Option<Pin>> {
     Ok(None)
 }
 
+/// Whether the shell hook may install unsatisfied pins on activation.
+/// Opt-in via `[settings] auto-install = true` in the global config only —
+/// machine-level consent, so a cloned repo can't trigger downloads by itself.
+pub fn auto_install_enabled() -> Result<bool> {
+    let global = linguo_root()?.join(GLOBAL_CONFIG);
+    let Ok(text) = std::fs::read_to_string(&global) else {
+        return Ok(false);
+    };
+    let doc: DocumentMut = text
+        .parse()
+        .with_context(|| format!("failed to parse {}", global.display()))?;
+    Ok(doc
+        .get("settings")
+        .and_then(|s| s.get("auto-install"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false))
+}
+
 /// The pin from the global config, if any covers `language`.
 pub fn global_pin(language: &str) -> Result<Option<Pin>> {
     let global = linguo_root()?.join(GLOBAL_CONFIG);

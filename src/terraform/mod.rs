@@ -118,6 +118,32 @@ pub fn resolve_active(cwd: &Path) -> Result<Option<(config::Pin, Distribution, V
     Ok(find_installed(&spec)?.map(|version| (pin, spec.dist, version)))
 }
 
+/// resolve_active with the shell hook's opt-in auto-install behavior,
+/// mirroring store::resolve_active_auto for distribution-qualified pins.
+pub fn resolve_active_auto(cwd: &Path) -> Result<Option<(config::Pin, Distribution, Version)>> {
+    if let Some(active) = resolve_active(cwd)? {
+        return Ok(Some(active));
+    }
+    let Some(pin) = config::resolve_pin(LANGUAGE, cwd)? else {
+        return Ok(None);
+    };
+    if !config::auto_install_enabled()? {
+        return Ok(None);
+    }
+    let spec = pin_spec(&pin)?;
+    if store::auto_install_recently_failed(spec.dist.store_key(), &pin.raw) {
+        return Ok(None);
+    }
+    eprintln!("linguo: auto-installing terraform pin '{}'", pin.raw);
+    if let Err(err) = install(Some(pin.raw.clone())) {
+        store::record_auto_install_failure(spec.dist.store_key(), &pin.raw);
+        eprintln!("linguo: auto-install of '{}' failed: {err:#}", pin.raw);
+        eprintln!("linguo: will not retry for 5 minutes");
+        return Ok(None);
+    }
+    resolve_active(cwd)
+}
+
 /// The pinned toolchain for `dir`, or an actionable error.
 fn required_toolchain(dir: &Path) -> Result<(Distribution, Version)> {
     let Some(pin) = config::resolve_pin(LANGUAGE, dir)? else {
@@ -157,7 +183,7 @@ pub fn install(request: Option<String>) -> Result<()> {
 
     let dest = toolchain_path(spec.dist, &build.version)?;
     if dest.exists() {
-        println!(
+        eprintln!(
             "{} is already installed",
             display_version(spec.dist, &build.version)
         );
@@ -167,7 +193,7 @@ pub fn install(request: Option<String>) -> Result<()> {
         .with_context(|| format!("failed to create {}", dest.parent().unwrap().display()))?;
 
     dist::install_build(build, &dest)?;
-    println!(
+    eprintln!(
         "installed {} to {}",
         display_version(spec.dist, &build.version),
         dest.display()

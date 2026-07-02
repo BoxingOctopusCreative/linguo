@@ -84,10 +84,6 @@ pub fn fallback_pin(cwd: &Path) -> Result<Option<Pin>> {
     Ok(None)
 }
 
-pub fn resolve_active(cwd: &Path) -> Result<Option<(Pin, Version)>> {
-    store::resolve_active(LANGUAGE, cwd)
-}
-
 /// Version a new project should use: pin if satisfiable, else newest installed.
 fn pick_project_version(dir: &Path) -> Result<Version> {
     store::pick_project_version(LANGUAGE, dir)
@@ -112,7 +108,7 @@ pub fn install(request: Option<String>) -> Result<()> {
     let (version, manifest) = dist::fetch_manifest(&channel)?;
     let dest = toolchain_path(&version)?;
     if dest.exists() {
-        println!("rust {version} is already installed");
+        eprintln!("rust {version} is already installed");
         return Ok(());
     }
     std::fs::create_dir_all(dest.parent().unwrap())
@@ -124,7 +120,7 @@ pub fn install(request: Option<String>) -> Result<()> {
         let _ = std::fs::remove_dir_all(&dest);
         return Err(err);
     }
-    println!("installed rust {version} to {}", dest.display());
+    eprintln!("installed rust {version} to {}", dest.display());
     Ok(())
 }
 

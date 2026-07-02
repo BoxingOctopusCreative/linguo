@@ -48,6 +48,18 @@ On Windows (PowerShell), add this to your `$PROFILE` instead:
 linguo activate powershell | Out-String | Invoke-Expression
 ```
 
+Optionally, let the hook install unsatisfied pins on the spot (cd into a
+fresh clone and the pinned toolchains just appear). It's off by default and
+gated on the machine-level config — a cloned repo can't trigger downloads by
+itself — and failed attempts back off for 5 minutes so an unreachable
+upstream never stalls your prompt:
+
+```toml
+# ~/.linguo/config.toml
+[settings]
+auto-install = true
+```
+
 ## Usage
 
 Every language gets the same runtime commands:
@@ -121,8 +133,6 @@ ecosystem pin file, then the global config.
 
 Roughly in order:
 
-- **Auto-install on activation** — opt-in: entering a project with an
-  unsatisfied pin installs it instead of erroring.
 - **Rust channels and components** — nightly/beta toolchains, extra
   components (`rust-analyzer`, `rust-src`), and cross-compilation targets
   from the same dist manifests.

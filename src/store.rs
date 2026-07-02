@@ -105,6 +105,70 @@ pub fn resolve_active(language: &str, cwd: &Path) -> Result<Option<(Pin, Version
     }
 }
 
+/// Marker file whose mtime records the last failed auto-install attempt for
+/// a pin, so an unreachable upstream doesn't hang every shell prompt.
+fn auto_install_marker(language: &str, req: &str) -> Result<PathBuf> {
+    Ok(config::linguo_root()?
+        .join("cache")
+        .join(format!("auto-install-failed-{language}-{req}")))
+}
+
+const AUTO_INSTALL_BACKOFF: std::time::Duration = std::time::Duration::from_secs(300);
+
+pub fn auto_install_recently_failed(language: &str, req: &str) -> bool {
+    auto_install_marker(language, req)
+        .ok()
+        .and_then(|path| path.metadata().ok())
+        .and_then(|meta| meta.modified().ok())
+        .and_then(|mtime| mtime.elapsed().ok())
+        .is_some_and(|age| age < AUTO_INSTALL_BACKOFF)
+}
+
+pub fn record_auto_install_failure(language: &str, req: &str) {
+    if let Ok(path) = auto_install_marker(language, req) {
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = std::fs::write(&path, "");
+    }
+}
+
+/// resolve_active, but — when auto-install is enabled — an unsatisfied pin
+/// is installed on the spot (with a failure backoff so broken networks don't
+/// stall every prompt). Used by the shell hook.
+pub fn resolve_active_auto(
+    language: &str,
+    cwd: &Path,
+    install: &dyn Fn(&str) -> Result<()>,
+) -> Result<Option<(Pin, Version)>> {
+    if let Some(active) = resolve_active(language, cwd)? {
+        return Ok(Some(active));
+    }
+    let Some(pin) = resolve_pin(language, cwd)? else {
+        return Ok(None);
+    };
+    if !config::auto_install_enabled()? {
+        return Ok(None);
+    }
+    let req = pin_req(language, &pin)?;
+    if auto_install_recently_failed(language, &req.to_string()) {
+        return Ok(None);
+    }
+    eprintln!("linguo: auto-installing {language} {req} (pinned by {})", {
+        match &pin.source {
+            PinSource::Project(path) => path.display().to_string(),
+            PinSource::Global => "the global config".to_string(),
+        }
+    });
+    if let Err(err) = install(&pin.raw) {
+        record_auto_install_failure(language, &req.to_string());
+        eprintln!("linguo: auto-install of {language} {req} failed: {err:#}");
+        eprintln!("linguo: will not retry for 5 minutes");
+        return Ok(None);
+    }
+    resolve_active(language, cwd)
+}
+
 /// The toolchain version pinned for `dir`, or an actionable error.
 pub fn required_toolchain(language: &str, dir: &Path) -> Result<Version> {
     let Some(pin) = resolve_pin(language, dir)? else {

@@ -72,7 +72,11 @@ _linguo_hook"#
 fn desired_dirs() -> Result<Vec<PathBuf>> {
     let cwd = std::env::current_dir()?;
     let mut dirs = Vec::new();
-    if let Some((pin, version)) = python::resolve_active(&cwd)? {
+    // When auto-install is enabled, unsatisfied pins install on the spot.
+    let auto = |language: &str, install: &dyn Fn(&str) -> anyhow::Result<()>| {
+        crate::store::resolve_active_auto(language, &cwd, install)
+    };
+    if let Some((pin, version)) = auto(python::LANGUAGE, &|v| python::install(Some(v.into())))? {
         if let PinSource::Project(pin_file) = &pin.source {
             let project_dir = pin_file.parent().unwrap_or(&cwd);
             let venv_bin = python::project::venv_bin_dir(project_dir);
@@ -82,7 +86,7 @@ fn desired_dirs() -> Result<Vec<PathBuf>> {
         }
         dirs.push(python::dist::bin_dir(&python::toolchain_path(&version)?));
     }
-    if let Some((pin, version)) = node::resolve_active(&cwd)? {
+    if let Some((pin, version)) = auto(node::LANGUAGE, &|v| node::install(Some(v.into())))? {
         if let PinSource::Project(pin_file) = &pin.source {
             let local_bin = pin_file
                 .parent()
@@ -95,16 +99,16 @@ fn desired_dirs() -> Result<Vec<PathBuf>> {
         }
         dirs.push(node::dist::bin_dir(&node::toolchain_path(&version)?));
     }
-    if let Some((_, version)) = ruby::resolve_active(&cwd)? {
+    if let Some((_, version)) = auto(ruby::LANGUAGE, &|v| ruby::install(Some(v.into())))? {
         dirs.push(ruby::dist::bin_dir(&ruby::toolchain_path(&version)?));
     }
-    if let Some((_, version)) = go::resolve_active(&cwd)? {
+    if let Some((_, version)) = auto(go::LANGUAGE, &|v| go::install(Some(v.into())))? {
         dirs.push(go::dist::bin_dir(&go::toolchain_path(&version)?));
     }
-    if let Some((_, version)) = rust::resolve_active(&cwd)? {
+    if let Some((_, version)) = auto(rust::LANGUAGE, &|v| rust::install(Some(v.into())))? {
         dirs.push(rust::dist::bin_dir(&rust::toolchain_path(&version)?));
     }
-    if let Some((_, dist, version)) = terraform::resolve_active(&cwd)? {
+    if let Some((_, dist, version)) = terraform::resolve_active_auto(&cwd)? {
         dirs.push(terraform::dist::bin_dir(&terraform::toolchain_path(
             dist, &version,
         )?));

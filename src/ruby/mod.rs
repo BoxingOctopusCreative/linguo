@@ -15,10 +15,6 @@ pub fn toolchain_path(version: &Version) -> Result<PathBuf> {
     store::toolchain_path(LANGUAGE, version)
 }
 
-pub fn resolve_active(cwd: &Path) -> Result<Option<(Pin, Version)>> {
-    store::resolve_active(LANGUAGE, cwd)
-}
-
 pub fn upgrade(latest: bool, prune: bool) -> Result<()> {
     let available: Vec<Version> = dist::fetch_available()?.iter().map(|b| b.version).collect();
     let newest = available.last().copied();
@@ -60,14 +56,14 @@ pub fn install(request: Option<String>) -> Result<()> {
 
     let dest = toolchain_path(&build.version)?;
     if dest.exists() {
-        println!("ruby {} is already installed", build.version);
+        eprintln!("ruby {} is already installed", build.version);
         return Ok(());
     }
     std::fs::create_dir_all(dest.parent().unwrap())
         .with_context(|| format!("failed to create {}", dest.parent().unwrap().display()))?;
 
     dist::install_build(build, &dest)?;
-    println!(
+    eprintln!(
         "installed ruby {} ({}) to {}",
         build.version,
         build.release_tag,
