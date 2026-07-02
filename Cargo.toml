@@ -4,6 +4,29 @@ version = "0.4.0"
 edition = "2024"
 description = "Cross-platform, multi-language runtime, package, and project manager"
 license = "MPL-2.0"
+authors = ["Ryan Draga <ryan.draga@boxingoctop.us>"]
+homepage = "https://github.com/BoxingOctopusCreative/linguo"
+repository = "https://github.com/BoxingOctopusCreative/linguo"
+
+[package.metadata.wix]
+eula = false
+
+[package.metadata.deb]
+extended-description = """\
+linguo manages runtime versions, per-project pins, and project workflows \
+for Python, Node.js, Ruby, Rust, Go, and Terraform/OpenTofu with one \
+uv-style command surface."""
+assets = [
+    ["target/release/linguo", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/linguo/README.md", "644"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/linguo", dest = "/usr/bin/linguo", mode = "755" },
+    { source = "README.md", dest = "/usr/share/doc/linguo/README.md", mode = "644", doc = true },
+    { source = "LICENSE", dest = "/usr/share/licenses/linguo/LICENSE", mode = "644" },
+]
 
 [dependencies]
 anyhow = "1"
