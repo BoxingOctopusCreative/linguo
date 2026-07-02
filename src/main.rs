@@ -1,4 +1,5 @@
 mod config;
+mod fetch;
 mod python;
 mod shell;
 mod versions;
@@ -57,6 +58,8 @@ enum PythonCommand {
     Remove { packages: Vec<String> },
     /// Install everything pyproject.toml declares into the project venv
     Sync,
+    /// Show which executable a command resolves to (default: python)
+    Which { command: Option<String> },
     /// Run a command with the project venv and pinned toolchain on PATH
     Run {
         #[arg(trailing_var_arg = true, required = true)]
@@ -76,6 +79,7 @@ fn main() -> anyhow::Result<()> {
             PythonCommand::Add { packages } => python::project::add(&packages),
             PythonCommand::Remove { packages } => python::project::remove(&packages),
             PythonCommand::Sync => python::project::sync(),
+            PythonCommand::Which { command } => python::project::which(command),
             PythonCommand::Run { args } => python::project::run(&args),
         },
         Command::Activate { shell } => {

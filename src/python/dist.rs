@@ -1,13 +1,12 @@
 //! Fetching CPython builds from astral-sh/python-build-standalone.
 
-use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
+use crate::fetch;
 use crate::versions::Version;
 
 const RELEASE_URL: &str =
@@ -47,15 +46,6 @@ pub struct AvailableBuild {
     pub release_tag: String,
 }
 
-fn client() -> Result<reqwest::blocking::Client> {
-    reqwest::blocking::Client::builder()
-        .user_agent(concat!("linguo/", env!("CARGO_PKG_VERSION")))
-        .timeout(Duration::from_secs(600))
-        .connect_timeout(Duration::from_secs(15))
-        .build()
-        .context("failed to build HTTP client")
-}
-
 /// Look up a file's hash in a `SHA256SUMS` manifest (`<hex>  <name>` lines).
 fn find_sha256(sums: &str, asset_name: &str) -> Option<String> {
     sums.lines().find_map(|line| {
@@ -77,7 +67,7 @@ fn parse_asset_version(name: &str, triple: &str) -> Option<Version> {
 /// have an `install_only` build for the current platform.
 pub fn fetch_available() -> Result<Vec<AvailableBuild>> {
     let triple = target_triple()?;
-    let release: Release = client()?
+    let release: Release = fetch::client()?
         .get(RELEASE_URL)
         .send()
         .context("failed to query python-build-standalone releases")?
@@ -112,7 +102,7 @@ pub fn fetch_available() -> Result<Vec<AvailableBuild>> {
 /// Download the build, verify its checksum, and extract it so that
 /// `dest/bin/python3` exists. `dest` must not already exist.
 pub fn install_build(build: &AvailableBuild, dest: &Path) -> Result<()> {
-    let http = client()?;
+    let http = fetch::client()?;
 
     let expected_sha = match &build.sums_url {
         Some(url) => {
@@ -131,22 +121,13 @@ pub fn install_build(build: &AvailableBuild, dest: &Path) -> Result<()> {
     };
 
     eprintln!("downloading {}", build.url);
-    let mut response = http
-        .get(&build.url)
-        .send()
-        .and_then(|r| r.error_for_status())
-        .with_context(|| format!("failed to download {}", build.url))?;
+    let archive = fetch::download(&http, &build.url)?;
 
     let staging = tempfile::tempdir_in(
         dest.parent()
             .context("install destination has no parent directory")?,
     )
     .context("failed to create staging directory")?;
-
-    let mut archive = Vec::new();
-    response
-        .read_to_end(&mut archive)
-        .context("download interrupted")?;
 
     if let Some(expected) = expected_sha {
         let actual = hex::encode(Sha256::digest(&archive));

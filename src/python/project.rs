@@ -267,22 +267,64 @@ pub fn sync() -> Result<()> {
     Ok(())
 }
 
+/// linguo-managed bin directories for `cwd` — the project venv (if any)
+/// followed by the pinned toolchain — plus the venv root when one exists.
+fn managed_bin_dirs(cwd: &Path) -> Result<(Vec<PathBuf>, Option<PathBuf>)> {
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    let mut venv: Option<PathBuf> = None;
+    if let Some(root) = find_project_root(cwd) {
+        let venv_dir = root.join(VENV);
+        if venv_dir.join("pyvenv.cfg").is_file() {
+            dirs.push(venv_bin_dir(&root));
+            venv = Some(venv_dir);
+        }
+    }
+    let version = required_toolchain(cwd)?;
+    dirs.push(super::dist::bin_dir(&super::toolchain_path(&version)?));
+    Ok((dirs, venv))
+}
+
+fn is_executable(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        path.metadata()
+            .is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+    }
+    #[cfg(not(unix))]
+    {
+        path.is_file()
+    }
+}
+
+/// Print the path of the executable a command resolves to (default: python).
+pub fn which(command: Option<String>) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    let (dirs, _) = managed_bin_dirs(&cwd)?;
+    let candidates = match &command {
+        Some(name) => vec![name.clone()],
+        None => vec!["python".to_string(), "python3".to_string()],
+    };
+    for dir in &dirs {
+        for name in &candidates {
+            let path = dir.join(name);
+            if is_executable(&path) {
+                println!("{}", path.display());
+                return Ok(());
+            }
+        }
+    }
+    bail!(
+        "'{}' not found in the project venv or pinned toolchain",
+        candidates.join("' / '")
+    );
+}
+
 /// Run a command with the project venv (if any) and pinned toolchain on PATH.
 pub fn run(args: &[String]) -> Result<()> {
     let (program, rest) = args.split_first().context("no command given")?;
     let cwd = std::env::current_dir()?;
-
-    let mut path_dirs: Vec<PathBuf> = Vec::new();
-    let mut venv: Option<PathBuf> = None;
-    if let Some(root) = find_project_root(&cwd) {
-        let venv_dir = root.join(VENV);
-        if venv_dir.join("pyvenv.cfg").is_file() {
-            path_dirs.push(venv_bin_dir(&root));
-            venv = Some(venv_dir);
-        }
-    }
-    let version = required_toolchain(&cwd)?;
-    path_dirs.push(super::dist::bin_dir(&super::toolchain_path(&version)?));
+    let (mut path_dirs, venv) = managed_bin_dirs(&cwd)?;
 
     let current_path = std::env::var_os("PATH").unwrap_or_default();
     path_dirs.extend(std::env::split_paths(&current_path));

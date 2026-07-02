@@ -35,6 +35,7 @@ linguo python add "requests>=2.31"
 linguo python remove requests
 linguo python sync                # install everything pyproject.toml declares
 linguo python run -- pytest       # run with the venv + toolchain on PATH
+linguo python which               # path of the active python (or any command)
 ```
 
 Version pins live in `linguo.toml`:
