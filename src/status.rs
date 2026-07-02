@@ -8,7 +8,7 @@ use crate::{store, terraform};
 
 /// Languages whose pins are plain version requests; terraform is handled
 /// separately because its pins carry a distribution.
-const GENERIC_LANGUAGES: &[&str] = &["python", "node", "go"];
+const GENERIC_LANGUAGES: &[&str] = &["python", "node", "ruby", "go"];
 
 pub fn status() -> Result<()> {
     let cwd = std::env::current_dir()?;

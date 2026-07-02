@@ -3,9 +3,9 @@
 Cross-platform, multi-language runtime, package, and project manager — think
 uv, but for Python, Go, Node.js, Ruby, Rust, and Terraform.
 
-Commands follow the shape `linguo <language> <command>`. Python, Node.js, Go,
-and Terraform are supported so far; the other languages will follow the same
-command surface.
+Commands follow the shape `linguo <language> <command>`. Python, Node.js,
+Ruby, Go, and Terraform/OpenTofu are supported so far; Rust will follow the
+same command surface.
 
 ## Install
 
@@ -49,6 +49,14 @@ linguo node init
 linguo node add typescript
 linguo node run -- tsc --version
 linguo node which tsc
+
+# Ruby uses relocatable prebuilt CRubys from rv-ruby (sha256-verified);
+# projects are a plain Gemfile driven through bundler, with gems shared
+# per toolchain (gem executables land on PATH automatically)
+linguo ruby install 3.4
+linguo ruby init
+linguo ruby add rails
+linguo ruby run -- rails new .
 
 # So does Go (toolchains from go.dev/dl, sha256-verified; projects are plain
 # go.mod managed through the pinned toolchain's go tool)

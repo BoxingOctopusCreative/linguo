@@ -4,6 +4,7 @@ mod fetch;
 mod go;
 mod node;
 mod python;
+mod ruby;
 mod shell;
 mod status;
 mod store;
@@ -41,6 +42,11 @@ enum Command {
     Go {
         #[command(subcommand)]
         command: GoCommand,
+    },
+    /// Manage Ruby toolchains and projects
+    Ruby {
+        #[command(subcommand)]
+        command: RubyCommand,
     },
     /// Manage Terraform toolchains
     #[command(alias = "tf")]
@@ -167,6 +173,41 @@ enum GoCommand {
 }
 
 #[derive(Subcommand)]
+enum RubyCommand {
+    /// Download and install a toolchain (latest if no version is given)
+    Install { version: Option<String> },
+    /// Remove an installed toolchain
+    Uninstall { version: String },
+    /// List installed toolchains
+    List {
+        /// List versions available for download instead
+        #[arg(long)]
+        available: bool,
+    },
+    /// Pin a version for this directory (or globally)
+    Use {
+        version: String,
+        #[arg(long)]
+        global: bool,
+    },
+    /// Create a new project: Gemfile and version pin
+    Init,
+    /// bundle add gems to the project
+    Add { gems: Vec<String> },
+    /// bundle remove gems from the project
+    Remove { gems: Vec<String> },
+    /// Install everything the Gemfile declares (bundle install)
+    Sync,
+    /// Show which executable a command resolves to (default: ruby)
+    Which { command: Option<String> },
+    /// Run a command with the pinned toolchain and its gems on PATH
+    Run {
+        #[arg(trailing_var_arg = true, required = true)]
+        args: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
 enum TerraformCommand {
     /// Download and install a toolchain (latest stable if no version is given)
     Install { version: Option<String> },
@@ -237,6 +278,20 @@ fn main() -> anyhow::Result<()> {
             GoCommand::Sync => go::project::sync(),
             GoCommand::Which { command } => go::project::which(command),
             GoCommand::Run { args } => go::project::run(&args),
+        },
+        Command::Ruby { command } => match command {
+            RubyCommand::Install { version } => ruby::install(version),
+            RubyCommand::Uninstall { version } => store::uninstall(ruby::LANGUAGE, &version),
+            RubyCommand::List { available } => ruby::list(available),
+            RubyCommand::Use { version, global } => {
+                store::use_version(ruby::LANGUAGE, &version, global)
+            }
+            RubyCommand::Init => ruby::project::init(),
+            RubyCommand::Add { gems } => ruby::project::add(&gems),
+            RubyCommand::Remove { gems } => ruby::project::remove(&gems),
+            RubyCommand::Sync => ruby::project::sync(),
+            RubyCommand::Which { command } => ruby::project::which(command),
+            RubyCommand::Run { args } => ruby::project::run(&args),
         },
         Command::Terraform { command } => match command {
             TerraformCommand::Install { version } => terraform::install(version),
