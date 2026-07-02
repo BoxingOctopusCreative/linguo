@@ -19,6 +19,32 @@ pub fn resolve_active(cwd: &Path) -> Result<Option<(Pin, Version)>> {
     store::resolve_active(LANGUAGE, cwd)
 }
 
+/// Parse a version request out of go.mod: the `toolchain go1.x.y` directive
+/// wins over the `go 1.x[.y]` minimum-version directive.
+fn go_mod_version(text: &str) -> Option<String> {
+    let directive = |prefix: &str| {
+        text.lines()
+            .map(str::trim)
+            .find_map(|line| line.strip_prefix(prefix))
+            .map(|v| v.trim().to_string())
+    };
+    directive("toolchain go").or_else(|| directive("go "))
+}
+
+/// go.mod's toolchain/go directives, from the nearest go.mod up the tree.
+pub fn fallback_pin(cwd: &Path) -> Result<Option<Pin>> {
+    for dir in cwd.ancestors() {
+        let path = dir.join("go.mod");
+        if !path.is_file() {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path)
+            .with_context(|| format!("failed to read {}", path.display()))?;
+        return Ok(go_mod_version(&text).and_then(|raw| store::file_pin(&raw, &path)));
+    }
+    Ok(None)
+}
+
 pub fn install(request: Option<String>) -> Result<()> {
     let builds = dist::fetch_available()?;
     if builds.is_empty() {

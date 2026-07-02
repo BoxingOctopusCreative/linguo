@@ -101,18 +101,19 @@ terraform = "opentofu@1.12"
 ```
 
 Requests can be a major (`24`), minor (`3.12`), or exact (`1.96.1`) version;
-the highest installed match wins. For Rust, a rustup-convention
-`rust-toolchain.toml` whose channel is a plain version is honored as a
-fallback pin when no `linguo.toml` covers rust.
+the highest installed match wins.
+
+Existing projects work without a `linguo.toml`: when none covers a language,
+linguo honors the ecosystem's own pin file — `.python-version`, `.nvmrc` /
+`.node-version`, `.ruby-version`, go.mod's `toolchain`/`go` directives, and
+`rust-toolchain(.toml)` — as long as it holds a plain version (aliases like
+`lts/*` or `stable` are ignored). Precedence: project `linguo.toml`, then the
+ecosystem pin file, then the global config.
 
 ## Road to 1.0
 
 Roughly in order:
 
-- **Ecosystem pin-file fallbacks** — read `.nvmrc`, `.python-version`,
-  `.ruby-version`, and `go.mod` toolchain directives the way
-  `rust-toolchain.toml` already works, so existing projects activate without
-  a `linguo.toml`.
 - **`linguo <lang> upgrade`** — bump a pin (and install the newer toolchain)
   in one step; prune superseded toolchains.
 - **Auto-install on activation** — opt-in: entering a project with an

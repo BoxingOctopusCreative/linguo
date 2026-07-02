@@ -56,9 +56,8 @@ fn read_pin_from(path: &Path, language: &str) -> Result<Option<String>> {
         .map(str::to_string))
 }
 
-/// Resolve the pin for `language`: nearest project `linguo.toml` first, then
-/// the global config.
-pub fn resolve_pin(language: &str, cwd: &Path) -> Result<Option<Pin>> {
+/// The pin from the nearest project `linguo.toml`, if any covers `language`.
+pub fn project_pin(language: &str, cwd: &Path) -> Result<Option<Pin>> {
     if let Some(path) = find_pin_file(cwd)
         && let Some(raw) = read_pin_from(&path, language)?
     {
@@ -67,6 +66,11 @@ pub fn resolve_pin(language: &str, cwd: &Path) -> Result<Option<Pin>> {
             source: PinSource::Project(path),
         }));
     }
+    Ok(None)
+}
+
+/// The pin from the global config, if any covers `language`.
+pub fn global_pin(language: &str) -> Result<Option<Pin>> {
     let global = linguo_root()?.join(GLOBAL_CONFIG);
     if global.is_file()
         && let Some(raw) = read_pin_from(&global, language)?
@@ -77,6 +81,16 @@ pub fn resolve_pin(language: &str, cwd: &Path) -> Result<Option<Pin>> {
         }));
     }
     Ok(None)
+}
+
+/// Resolve the pin for `language`: nearest project `linguo.toml` first, then
+/// the global config. (Languages with ecosystem pin-file fallbacks resolve
+/// through `store::resolve_pin`, which slots the fallback between the two.)
+pub fn resolve_pin(language: &str, cwd: &Path) -> Result<Option<Pin>> {
+    if let Some(pin) = project_pin(language, cwd)? {
+        return Ok(Some(pin));
+    }
+    global_pin(language)
 }
 
 /// Set `[runtimes] <language> = "<raw>"` in `path`, creating the file if needed.

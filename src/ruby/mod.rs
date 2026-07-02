@@ -19,6 +19,19 @@ pub fn resolve_active(cwd: &Path) -> Result<Option<(Pin, Version)>> {
     store::resolve_active(LANGUAGE, cwd)
 }
 
+/// rbenv/rvm convention: the nearest `.ruby-version` holding a plain version
+/// (optionally `ruby-`-prefixed). Other engines (`jruby-...`) count as no pin.
+pub fn fallback_pin(cwd: &Path) -> Result<Option<Pin>> {
+    for dir in cwd.ancestors() {
+        let path = dir.join(".ruby-version");
+        if let Some(raw) = store::read_version_file(&path)? {
+            let version = raw.strip_prefix("ruby-").unwrap_or(&raw);
+            return Ok(store::file_pin(version, &path));
+        }
+    }
+    Ok(None)
+}
+
 pub fn install(request: Option<String>) -> Result<()> {
     let builds = dist::fetch_available()?;
     if builds.is_empty() {

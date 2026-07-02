@@ -2,14 +2,14 @@
 
 use anyhow::{Context, Result};
 
-use crate::config::{self, PinSource};
+use crate::config::PinSource;
 use crate::versions::VersionReq;
-use crate::{rust, store, terraform};
+use crate::{store, terraform};
 
-/// Languages whose pins are plain version requests resolved from linguo
-/// config alone; rust (rust-toolchain.toml fallback) and terraform
-/// (distribution-qualified pins) print their own sections.
-const GENERIC_LANGUAGES: &[&str] = &["python", "node", "ruby", "go"];
+/// Languages whose pins are plain version requests (including ecosystem
+/// pin-file fallbacks, which store::resolve_pin handles); terraform prints
+/// its own section because its pins carry a distribution.
+const GENERIC_LANGUAGES: &[&str] = &["python", "node", "ruby", "go", "rust"];
 
 pub fn status() -> Result<()> {
     let cwd = std::env::current_dir()?;
@@ -28,7 +28,7 @@ pub fn status() -> Result<()> {
         };
         println!("  toolchains: {toolchains}");
 
-        match config::resolve_pin(language, &cwd)? {
+        match store::resolve_pin(language, &cwd)? {
             None => println!("  active: none (no version pinned)"),
             Some(pin) => {
                 let source = match &pin.source {
@@ -51,6 +51,5 @@ pub fn status() -> Result<()> {
             }
         }
     }
-    rust::print_status(&cwd)?;
     terraform::print_status(&cwd)
 }

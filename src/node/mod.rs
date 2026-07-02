@@ -19,6 +19,22 @@ pub fn resolve_active(cwd: &Path) -> Result<Option<(Pin, Version)>> {
     store::resolve_active(LANGUAGE, cwd)
 }
 
+/// nvm/nodenv convention: the nearest `.nvmrc` or `.node-version` holding a
+/// plain version (optionally `v`-prefixed). Aliases like `lts/*` or `node`
+/// can't map to a pinned install and count as no pin.
+pub fn fallback_pin(cwd: &Path) -> Result<Option<Pin>> {
+    for dir in cwd.ancestors() {
+        for name in [".nvmrc", ".node-version"] {
+            let path = dir.join(name);
+            if let Some(raw) = store::read_version_file(&path)? {
+                let version = raw.strip_prefix('v').unwrap_or(&raw);
+                return Ok(store::file_pin(version, &path));
+            }
+        }
+    }
+    Ok(None)
+}
+
 pub fn install(request: Option<String>) -> Result<()> {
     let builds = dist::fetch_available()?;
     if builds.is_empty() {

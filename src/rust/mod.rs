@@ -3,9 +3,9 @@ pub mod project;
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 
-use crate::config::{self, Pin, PinSource};
+use crate::config::Pin;
 use crate::store;
 use crate::versions::{Version, VersionReq};
 
@@ -47,61 +47,25 @@ fn read_toolchain_file(dir: &Path) -> Result<Option<(String, PathBuf)>> {
     Ok(None)
 }
 
-/// Resolve the rust pin: linguo.toml / global config first, then the nearest
-/// rust-toolchain(.toml) whose channel is a plain version. Channel names like
-/// `stable` or `nightly-*` can't map to a pinned install and are ignored.
-pub fn resolve_pin(cwd: &Path) -> Result<Option<Pin>> {
-    if let Some(pin) = config::resolve_pin(LANGUAGE, cwd)? {
-        return Ok(Some(pin));
-    }
+/// rustup convention: the nearest rust-toolchain(.toml) whose channel is a
+/// plain version. Channel names like `stable` or `nightly-*` can't map to a
+/// pinned install and count as no pin.
+pub fn fallback_pin(cwd: &Path) -> Result<Option<Pin>> {
     for dir in cwd.ancestors() {
         if let Some((channel, path)) = read_toolchain_file(dir)? {
-            if channel.parse::<VersionReq>().is_ok() {
-                return Ok(Some(Pin {
-                    raw: channel,
-                    source: PinSource::Project(path),
-                }));
-            }
-            return Ok(None);
+            return Ok(store::file_pin(&channel, &path));
         }
     }
     Ok(None)
 }
 
-fn pin_req(pin: &Pin) -> Result<VersionReq> {
-    pin.raw
-        .parse()
-        .with_context(|| format!("invalid rust version '{}' pinned", pin.raw))
-}
-
 pub fn resolve_active(cwd: &Path) -> Result<Option<(Pin, Version)>> {
-    let Some(pin) = resolve_pin(cwd)? else {
-        return Ok(None);
-    };
-    let req = pin_req(&pin)?;
-    Ok(store::find_installed(LANGUAGE, &req)?.map(|version| (pin, version)))
-}
-
-/// The pinned toolchain for `dir`, or an actionable error.
-pub fn required_toolchain(dir: &Path) -> Result<Version> {
-    let Some(pin) = resolve_pin(dir)? else {
-        bail!("no rust version pinned (run `linguo rust use <version>` or `linguo rust init`)");
-    };
-    let req = pin_req(&pin)?;
-    store::find_installed(LANGUAGE, &req)?.with_context(|| {
-        format!("rust {req} is pinned but not installed (run `linguo rust install {req}`)")
-    })
+    store::resolve_active(LANGUAGE, cwd)
 }
 
 /// Version a new project should use: pin if satisfiable, else newest installed.
 fn pick_project_version(dir: &Path) -> Result<Version> {
-    match resolve_pin(dir)? {
-        Some(_) => required_toolchain(dir),
-        None => store::installed_versions(LANGUAGE)?
-            .last()
-            .copied()
-            .context("no rust toolchains installed (run `linguo rust install`)"),
-    }
+    store::pick_project_version(LANGUAGE, dir)
 }
 
 pub fn install(request: Option<String>) -> Result<()> {
@@ -171,60 +135,5 @@ pub fn list(available: bool) -> Result<()> {
         return Ok(());
     }
 
-    if installed.is_empty() {
-        println!("no rust toolchains installed (try `linguo rust install`)");
-        return Ok(());
-    }
-    let cwd = std::env::current_dir()?;
-    let active = resolve_active(&cwd)?;
-    for version in installed {
-        match &active {
-            Some((pin, active_version)) if *active_version == version => {
-                let source = match &pin.source {
-                    PinSource::Project(path) => format!("pinned by {}", path.display()),
-                    PinSource::Global => "global default".to_string(),
-                };
-                println!("{version} * ({source})");
-            }
-            _ => println!("{version}"),
-        }
-    }
-    Ok(())
-}
-
-/// Status lines for `linguo status`, matching the generic language format.
-pub fn print_status(cwd: &Path) -> Result<()> {
-    println!("{LANGUAGE}");
-    let installed = store::installed_versions(LANGUAGE)?;
-    let toolchains = if installed.is_empty() {
-        "(none)".to_string()
-    } else {
-        installed
-            .iter()
-            .map(|v| v.to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
-    };
-    println!("  toolchains: {toolchains}");
-
-    match resolve_pin(cwd)? {
-        None => println!("  active: none (no version pinned)"),
-        Some(pin) => {
-            let source = match &pin.source {
-                PinSource::Project(path) => path.display().to_string(),
-                PinSource::Global => "global config".to_string(),
-            };
-            let req = pin_req(&pin)?;
-            match store::find_installed(LANGUAGE, &req)? {
-                Some(version) => {
-                    println!("  active: {version} (pinned to {} by {source})", pin.raw);
-                }
-                None => println!(
-                    "  active: none ({} pinned by {source} but not installed — run `linguo rust install {}`)",
-                    pin.raw, pin.raw
-                ),
-            }
-        }
-    }
-    Ok(())
+    store::list_installed(LANGUAGE)
 }

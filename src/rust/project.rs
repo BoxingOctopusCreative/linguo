@@ -25,7 +25,7 @@ fn project_root() -> Result<PathBuf> {
 }
 
 fn toolchain_bin(dir: &Path) -> Result<PathBuf> {
-    let version = super::required_toolchain(dir)?;
+    let version = crate::store::required_toolchain(super::LANGUAGE, dir)?;
     Ok(super::dist::bin_dir(&super::toolchain_path(&version)?))
 }
 

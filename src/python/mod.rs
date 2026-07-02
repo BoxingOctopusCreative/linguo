@@ -19,6 +19,17 @@ pub fn resolve_active(cwd: &Path) -> Result<Option<(Pin, Version)>> {
     store::resolve_active(LANGUAGE, cwd)
 }
 
+/// pyenv convention: the nearest `.python-version` holding a plain version.
+pub fn fallback_pin(cwd: &Path) -> Result<Option<Pin>> {
+    for dir in cwd.ancestors() {
+        let path = dir.join(".python-version");
+        if let Some(raw) = store::read_version_file(&path)? {
+            return Ok(store::file_pin(&raw, &path));
+        }
+    }
+    Ok(None)
+}
+
 pub fn install(request: Option<String>) -> Result<()> {
     let builds = dist::fetch_available()?;
     if builds.is_empty() {
