@@ -7,7 +7,9 @@ use anyhow::{Context, Result, bail};
 use toml_edit::{Array, DocumentMut, value};
 
 use crate::config;
-use crate::versions::{Version, VersionReq};
+use crate::exec;
+use crate::store;
+use crate::versions::VersionReq;
 
 const PYPROJECT: &str = "pyproject.toml";
 const VENV: &str = ".venv";
@@ -36,26 +38,13 @@ pub fn venv_bin_dir(project_root: &Path) -> PathBuf {
     }
 }
 
-/// The toolchain version the project should use, or an actionable error.
-fn required_toolchain(dir: &Path) -> Result<Version> {
-    let Some(pin) = config::resolve_pin(super::LANGUAGE, dir)? else {
-        bail!("no python version pinned (run `linguo python use <version>` or `linguo python init`)");
-    };
-    super::find_installed(&pin.req)?.with_context(|| {
-        format!(
-            "python {} is pinned but not installed (run `linguo python install {}`)",
-            pin.req, pin.req
-        )
-    })
-}
-
 /// Create the project venv with the pinned toolchain if it doesn't exist yet.
 fn ensure_venv(root: &Path) -> Result<PathBuf> {
     let venv = root.join(VENV);
     if venv.join("pyvenv.cfg").is_file() {
         return Ok(venv);
     }
-    let version = required_toolchain(root)?;
+    let version = store::required_toolchain(super::LANGUAGE, root)?;
     let python = super::dist::bin_dir(&super::toolchain_path(&version)?).join("python3");
     eprintln!("creating {} with python {version}", venv.display());
     let status = Command::new(&python)
@@ -175,15 +164,7 @@ pub fn init(name: Option<String>) -> Result<()> {
         bail!("{} already exists", pyproject_path.display());
     }
 
-    // Pick a version: existing pin if satisfiable, otherwise the newest
-    // installed toolchain.
-    let version = match config::resolve_pin(super::LANGUAGE, &cwd)? {
-        Some(_) => required_toolchain(&cwd)?,
-        None => super::installed_versions()?
-            .last()
-            .copied()
-            .context("no python toolchains installed (run `linguo python install`)")?,
-    };
+    let version = store::pick_project_version(super::LANGUAGE, &cwd)?;
 
     let name = match name {
         Some(name) => name,
@@ -279,22 +260,9 @@ fn managed_bin_dirs(cwd: &Path) -> Result<(Vec<PathBuf>, Option<PathBuf>)> {
             venv = Some(venv_dir);
         }
     }
-    let version = required_toolchain(cwd)?;
+    let version = store::required_toolchain(super::LANGUAGE, cwd)?;
     dirs.push(super::dist::bin_dir(&super::toolchain_path(&version)?));
     Ok((dirs, venv))
-}
-
-fn is_executable(path: &Path) -> bool {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        path.metadata()
-            .is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
-    }
-    #[cfg(not(unix))]
-    {
-        path.is_file()
-    }
 }
 
 /// Print the path of the executable a command resolves to (default: python).
@@ -308,7 +276,7 @@ pub fn which(command: Option<String>) -> Result<()> {
     for dir in &dirs {
         for name in &candidates {
             let path = dir.join(name);
-            if is_executable(&path) {
+            if exec::is_executable(&path) {
                 println!("{}", path.display());
                 return Ok(());
             }
@@ -335,19 +303,7 @@ pub fn run(args: &[String]) -> Result<()> {
     if let Some(venv) = venv {
         cmd.env("VIRTUAL_ENV", venv);
     }
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        Err(cmd.exec()).with_context(|| format!("failed to run {program}"))
-    }
-    #[cfg(not(unix))]
-    {
-        let status = cmd
-            .status()
-            .with_context(|| format!("failed to run {program}"))?;
-        std::process::exit(status.code().unwrap_or(1));
-    }
+    exec::exec(cmd, program)
 }
 
 #[cfg(test)]

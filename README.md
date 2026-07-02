@@ -3,8 +3,9 @@
 Cross-platform, multi-language runtime, package, and project manager — think
 uv, but for Python, Go, Node.js, Ruby, Rust, and Terraform.
 
-Commands follow the shape `linguo <language> <command>`. Python is the first
-supported language; the others will follow the same command surface.
+Commands follow the shape `linguo <language> <command>`. Python and Node.js
+are supported so far; the other languages will follow the same command
+surface.
 
 ## Install
 
@@ -36,6 +37,15 @@ linguo python remove requests
 linguo python sync                # install everything pyproject.toml declares
 linguo python run -- pytest       # run with the venv + toolchain on PATH
 linguo python which               # path of the active python (or any command)
+
+# Node.js works the same way (toolchains from nodejs.org/dist, sha256-verified;
+# projects are plain package.json + npm, with node_modules/.bin on PATH)
+linguo node install               # latest LTS if no version is given
+linguo node use 24
+linguo node init
+linguo node add typescript
+linguo node run -- tsc --version
+linguo node which tsc
 ```
 
 Version pins live in `linguo.toml`:

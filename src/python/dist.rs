@@ -4,7 +4,6 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
 
 use crate::fetch;
 use crate::versions::Version;
@@ -44,14 +43,6 @@ pub struct AvailableBuild {
     /// URL of the release-wide SHA256SUMS manifest, when the release has one.
     sums_url: Option<String>,
     pub release_tag: String,
-}
-
-/// Look up a file's hash in a `SHA256SUMS` manifest (`<hex>  <name>` lines).
-fn find_sha256(sums: &str, asset_name: &str) -> Option<String> {
-    sums.lines().find_map(|line| {
-        let (hash, name) = line.split_once(char::is_whitespace)?;
-        (name.trim() == asset_name).then(|| hash.to_ascii_lowercase())
-    })
 }
 
 /// Parse a version out of an `install_only` asset name for `triple`, e.g.
@@ -112,9 +103,8 @@ pub fn install_build(build: &AvailableBuild, dest: &Path) -> Result<()> {
                 .and_then(|r| r.error_for_status())
                 .with_context(|| format!("failed to fetch checksums from {url}"))?
                 .text()?;
-            let digest = find_sha256(&text, &build.asset_name).with_context(|| {
-                format!("no SHA256SUMS entry for {}", build.asset_name)
-            })?;
+            let digest = fetch::find_sha256(&text, &build.asset_name)
+                .with_context(|| format!("no SHA256SUMS entry for {}", build.asset_name))?;
             Some(digest)
         }
         None => None,
@@ -123,38 +113,13 @@ pub fn install_build(build: &AvailableBuild, dest: &Path) -> Result<()> {
     eprintln!("downloading {}", build.url);
     let archive = fetch::download(&http, &build.url)?;
 
-    let staging = tempfile::tempdir_in(
-        dest.parent()
-            .context("install destination has no parent directory")?,
-    )
-    .context("failed to create staging directory")?;
-
-    if let Some(expected) = expected_sha {
-        let actual = hex::encode(Sha256::digest(&archive));
-        if actual != expected {
-            bail!(
-                "checksum mismatch for {}: expected {expected}, got {actual}",
-                build.url
-            );
-        }
-    } else {
-        eprintln!("warning: no published checksum for this build; skipping verification");
+    match expected_sha {
+        Some(expected) => fetch::verify_sha256(&archive, &expected, &build.asset_name)?,
+        None => eprintln!("warning: no published checksum for this build; skipping verification"),
     }
-
-    let gz = flate2::read::GzDecoder::new(archive.as_slice());
-    tar::Archive::new(gz)
-        .unpack(staging.path())
-        .context("failed to extract archive")?;
 
     // install_only archives contain a single top-level `python/` directory.
-    let extracted = staging.path().join("python");
-    if !extracted.is_dir() {
-        bail!("unexpected archive layout: no top-level python/ directory");
-    }
-    std::fs::rename(&extracted, dest).with_context(|| {
-        format!("failed to move extracted toolchain to {}", dest.display())
-    })?;
-    Ok(())
+    fetch::extract_tar_gz_subdir(&archive, "python", dest)
 }
 
 /// The directory containing executables inside an installed toolchain.
@@ -169,21 +134,6 @@ pub fn bin_dir(toolchain: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn finds_sha256_entries() {
-        let sums = "abc123  cpython-3.12.8+20241219-aarch64-apple-darwin-install_only.tar.gz\n\
-                    DEF456  other.tar.gz\n";
-        assert_eq!(
-            find_sha256(
-                sums,
-                "cpython-3.12.8+20241219-aarch64-apple-darwin-install_only.tar.gz"
-            ),
-            Some("abc123".to_string())
-        );
-        assert_eq!(find_sha256(sums, "other.tar.gz"), Some("def456".to_string()));
-        assert_eq!(find_sha256(sums, "missing.tar.gz"), None);
-    }
 
     #[test]
     fn parses_install_only_asset_names() {

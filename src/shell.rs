@@ -7,7 +7,8 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::ValueEnum;
 
-use crate::python;
+use crate::config::PinSource;
+use crate::{node, python};
 
 /// Env var tracking which directories linguo has prepended to PATH, so they
 /// can be removed again when the active project changes.
@@ -57,7 +58,7 @@ fn desired_dirs() -> Result<Vec<PathBuf>> {
     let cwd = std::env::current_dir()?;
     let mut dirs = Vec::new();
     if let Some((pin, version)) = python::resolve_active(&cwd)? {
-        if let crate::config::PinSource::Project(pin_file) = &pin.source {
+        if let PinSource::Project(pin_file) = &pin.source {
             let project_dir = pin_file.parent().unwrap_or(&cwd);
             let venv_bin = python::project::venv_bin_dir(project_dir);
             if venv_bin.is_dir() {
@@ -65,6 +66,19 @@ fn desired_dirs() -> Result<Vec<PathBuf>> {
             }
         }
         dirs.push(python::dist::bin_dir(&python::toolchain_path(&version)?));
+    }
+    if let Some((pin, version)) = node::resolve_active(&cwd)? {
+        if let PinSource::Project(pin_file) = &pin.source {
+            let local_bin = pin_file
+                .parent()
+                .unwrap_or(&cwd)
+                .join("node_modules")
+                .join(".bin");
+            if local_bin.is_dir() {
+                dirs.push(local_bin);
+            }
+        }
+        dirs.push(node::dist::bin_dir(&node::toolchain_path(&version)?));
     }
     Ok(dirs)
 }
