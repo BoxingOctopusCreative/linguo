@@ -70,19 +70,56 @@ pub fn verify_sha256(bytes: &[u8], expected: &str, what: &str) -> Result<()> {
     Ok(())
 }
 
-/// Extract a .tar.gz archive and move its top-level `subdir` to `dest`
-/// (which must not exist yet).
-pub fn extract_tar_gz_subdir(archive: &[u8], subdir: &str, dest: &Path) -> Result<()> {
+/// Unpack a .tar.gz or .zip archive (picked by `name`'s extension) into `dir`.
+fn unpack(archive: &[u8], name: &str, dir: &Path) -> Result<()> {
+    if name.ends_with(".tar.gz") {
+        let gz = flate2::read::GzDecoder::new(archive);
+        tar::Archive::new(gz)
+            .unpack(dir)
+            .context("failed to extract archive")
+    } else if name.ends_with(".zip") {
+        extract_zip(archive, dir)
+    } else {
+        bail!("unsupported archive format: {name}");
+    }
+}
+
+/// Extract a zip archive into `dir`, preserving unix permissions.
+fn extract_zip(archive: &[u8], dir: &Path) -> Result<()> {
+    let mut zip =
+        zip::ZipArchive::new(std::io::Cursor::new(archive)).context("failed to open archive")?;
+    std::fs::create_dir_all(dir).with_context(|| format!("failed to create {}", dir.display()))?;
+    for i in 0..zip.len() {
+        let mut file = zip.by_index(i).context("failed to read archive entry")?;
+        if file.is_dir() {
+            continue;
+        }
+        let path = dir.join(file.mangled_name());
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut out = std::fs::File::create(&path)
+            .with_context(|| format!("failed to create {}", path.display()))?;
+        std::io::copy(&mut file, &mut out).context("failed to extract archive entry")?;
+        #[cfg(unix)]
+        if let Some(mode) = file.unix_mode() {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode))?;
+        }
+    }
+    Ok(())
+}
+
+/// Extract an archive and move its top-level `subdir` to `dest` (which must
+/// not exist yet).
+pub fn extract_archive_subdir(archive: &[u8], name: &str, subdir: &str, dest: &Path) -> Result<()> {
     let staging = tempfile::tempdir_in(
         dest.parent()
             .context("install destination has no parent directory")?,
     )
     .context("failed to create staging directory")?;
 
-    let gz = flate2::read::GzDecoder::new(archive);
-    tar::Archive::new(gz)
-        .unpack(staging.path())
-        .context("failed to extract archive")?;
+    unpack(archive, name, staging.path())?;
 
     let extracted = staging.path().join(subdir);
     if !extracted.is_dir() {
@@ -91,6 +128,11 @@ pub fn extract_tar_gz_subdir(archive: &[u8], subdir: &str, dest: &Path) -> Resul
     std::fs::rename(&extracted, dest)
         .with_context(|| format!("failed to move extracted toolchain to {}", dest.display()))?;
     Ok(())
+}
+
+/// Extract an archive whose files sit at the top level directly into `dest`.
+pub fn extract_archive_root(archive: &[u8], name: &str, dest: &Path) -> Result<()> {
+    unpack(archive, name, dest)
 }
 
 #[cfg(test)]

@@ -105,8 +105,7 @@ pub fn sync() -> Result<()> {
 pub fn which(command: Option<String>) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let name = command.unwrap_or_else(|| "ruby".to_string());
-    let path = toolchain_bin(&cwd)?.join(&name);
-    if crate::exec::is_executable(&path) {
+    if let Some(path) = crate::exec::find_in_dir(&toolchain_bin(&cwd)?, &name) {
         println!("{}", path.display());
         return Ok(());
     }

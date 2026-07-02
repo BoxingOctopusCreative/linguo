@@ -17,6 +17,8 @@ fn platform() -> Result<(&'static str, &'static str)> {
         ("macos", "x86_64") => ("osx-x64-tar", "darwin-x64"),
         ("linux", "aarch64") => ("linux-arm64", "linux-arm64"),
         ("linux", "x86_64") => ("linux-x64", "linux-x64"),
+        ("windows", "x86_64") => ("win-x64-zip", "win-x64"),
+        ("windows", "aarch64") => ("win-arm64-zip", "win-arm64"),
         (os, arch) => bail!("unsupported platform for node: {os}/{arch}"),
     };
     Ok(pair)
@@ -74,7 +76,8 @@ pub fn fetch_available() -> Result<Vec<AvailableBuild>> {
 pub fn install_build(version: &Version, dest: &Path) -> Result<()> {
     let (_, suffix) = platform()?;
     let dirname = format!("node-v{version}-{suffix}");
-    let archive_name = format!("{dirname}.tar.gz");
+    let ext = if cfg!(windows) { "zip" } else { "tar.gz" };
+    let archive_name = format!("{dirname}.{ext}");
     let base = format!("https://nodejs.org/dist/v{version}");
     let http = fetch::client()?;
 
@@ -92,7 +95,12 @@ pub fn install_build(version: &Version, dest: &Path) -> Result<()> {
     eprintln!("downloading {url}");
     let archive = fetch::download(&http, &url)?;
     fetch::verify_sha256(&archive, &expected, &archive_name)?;
-    fetch::extract_tar_gz_subdir(&archive, &dirname, dest)
+    fetch::extract_archive_subdir(&archive, &archive_name, &dirname, dest)
+}
+
+/// npm's file name inside the toolchain bin dir (a .cmd script on Windows).
+pub fn npm_exe() -> &'static str {
+    if cfg!(windows) { "npm.cmd" } else { "npm" }
 }
 
 /// The directory containing executables inside an installed toolchain.

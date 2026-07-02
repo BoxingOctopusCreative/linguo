@@ -19,6 +19,7 @@ pub fn target_triple() -> Result<&'static str> {
         ("linux", "aarch64") => "aarch64-unknown-linux-gnu",
         ("linux", "x86_64") => "x86_64-unknown-linux-gnu",
         ("windows", "x86_64") => "x86_64-pc-windows-msvc",
+        ("windows", "aarch64") => "aarch64-pc-windows-msvc",
         (os, arch) => bail!("unsupported platform: {os}/{arch}"),
     };
     Ok(triple)
@@ -119,7 +120,7 @@ pub fn install_build(build: &AvailableBuild, dest: &Path) -> Result<()> {
     }
 
     // install_only archives contain a single top-level `python/` directory.
-    fetch::extract_tar_gz_subdir(&archive, "python", dest)
+    fetch::extract_archive_subdir(&archive, &build.asset_name, "python", dest)
 }
 
 /// The directory containing executables inside an installed toolchain.
@@ -128,6 +129,15 @@ pub fn bin_dir(toolchain: &Path) -> PathBuf {
         toolchain.to_path_buf()
     } else {
         toolchain.join("bin")
+    }
+}
+
+/// The interpreter's file name inside a toolchain or venv bin dir.
+pub fn python_exe() -> &'static str {
+    if cfg!(windows) {
+        "python.exe"
+    } else {
+        "python3"
     }
 }
 

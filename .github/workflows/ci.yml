@@ -17,3 +17,60 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test
+      - run: cargo build
+      # Real end-to-end exercise of every Windows-supported backend:
+      # install, project init, and running a command through the toolchain.
+      - name: Smoke test (python, node, go, terraform)
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LINGUO_ROOT="$RUNNER_TEMP/linguo-root"
+          linguo() { "$GITHUB_WORKSPACE/target/debug/linguo.exe" "$@"; }
+
+          linguo python install 3.12
+          mkdir "$RUNNER_TEMP/py-demo" && cd "$RUNNER_TEMP/py-demo"
+          linguo python init demo
+          linguo python add requests
+          linguo python run -- python -c "import requests; print('python ok')"
+          linguo python which
+
+          linguo node install 24
+          mkdir "$RUNNER_TEMP/node-demo" && cd "$RUNNER_TEMP/node-demo"
+          linguo node init demo
+          linguo node add left-pad
+          linguo node run -- node -e "require('left-pad'); console.log('node ok')"
+          linguo node which
+
+          linguo go install
+          mkdir "$RUNNER_TEMP/go-demo" && cd "$RUNNER_TEMP/go-demo"
+          linguo go init demo
+          linguo go run -- go version
+          linguo go which
+
+          linguo tf install 1.13
+          mkdir "$RUNNER_TEMP/tf-demo" && cd "$RUNNER_TEMP/tf-demo"
+          linguo tf use 1.13
+          linguo tf run -- terraform version
+          linguo tf which
+
+          linguo status
+      - name: Smoke test (PowerShell hook)
+        shell: pwsh
+        run: |
+          $env:LINGUO_ROOT = Join-Path $env:RUNNER_TEMP "linguo-root"
+          # The emitted hook re-invokes `linguo`, so it must be on PATH.
+          $env:PATH = "$env:GITHUB_WORKSPACE\target\debug;$env:PATH"
+          linguo activate powershell | Out-String | Invoke-Expression
+          Set-Location (Join-Path $env:RUNNER_TEMP "py-demo")
+          _linguo_hook
+          $py = (Get-Command python).Source
+          if ($py -notlike "*py-demo*") { throw "hook did not activate venv python: $py" }
+          python -c "print('powershell hook ok')"

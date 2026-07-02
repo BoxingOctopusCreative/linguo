@@ -17,6 +17,8 @@ fn platform() -> Result<(&'static str, &'static str)> {
         ("macos", "x86_64") => ("darwin", "amd64"),
         ("linux", "aarch64") => ("linux", "arm64"),
         ("linux", "x86_64") => ("linux", "amd64"),
+        ("windows", "x86_64") => ("windows", "amd64"),
+        ("windows", "aarch64") => ("windows", "arm64"),
         (os, arch) => bail!("unsupported platform for go: {os}/{arch}"),
     };
     Ok(pair)
@@ -80,11 +82,9 @@ pub fn fetch_available() -> Result<Vec<AvailableBuild>> {
         .filter(|release| release.stable)
         .filter_map(|release| {
             let version = parse_go_version(&release.version)?;
+            let ext = if cfg!(windows) { ".zip" } else { ".tar.gz" };
             let file = release.files.into_iter().find(|f| {
-                f.os == os
-                    && f.arch == arch
-                    && f.kind == "archive"
-                    && f.filename.ends_with(".tar.gz")
+                f.os == os && f.arch == arch && f.kind == "archive" && f.filename.ends_with(ext)
             })?;
             Some(AvailableBuild {
                 version,
@@ -105,7 +105,7 @@ pub fn install_build(build: &AvailableBuild, dest: &Path) -> Result<()> {
     let archive = fetch::download(&fetch::client()?, &url)?;
     fetch::verify_sha256(&archive, &build.sha256, &build.filename)?;
     // go.dev archives contain a single top-level `go/` directory.
-    fetch::extract_tar_gz_subdir(&archive, "go", dest)
+    fetch::extract_archive_subdir(&archive, &build.filename, "go", dest)
 }
 
 /// The directory containing executables inside an installed toolchain.

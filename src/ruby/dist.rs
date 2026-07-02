@@ -119,7 +119,7 @@ pub fn install_build(build: &AvailableBuild, dest: &Path) -> Result<()> {
     // rv-ruby archives are homebrew kegs: rv-ruby@<version>/<version>/ holds
     // the actual prefix.
     let keg = format!("rv-ruby@{v}/{v}", v = build.version);
-    fetch::extract_tar_gz_subdir(&archive, &keg, dest)
+    fetch::extract_archive_subdir(&archive, &build.asset_name, &keg, dest)
 }
 
 /// The directory containing executables inside an installed toolchain.

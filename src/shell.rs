@@ -19,6 +19,7 @@ pub enum Shell {
     Zsh,
     Bash,
     Fish,
+    Powershell,
 }
 
 pub fn activate(shell: Shell) {
@@ -47,6 +48,20 @@ _linguo_hook"#
             r#"function _linguo_hook --on-variable PWD
   command linguo env --shell fish | source
 end
+_linguo_hook"#
+        }
+        Shell::Powershell => {
+            r#"function global:_linguo_hook {
+  $linguoEnv = (linguo env --shell powershell | Out-String)
+  if ($linguoEnv.Trim()) { Invoke-Expression $linguoEnv }
+}
+if (-not $Global:__linguo_original_prompt) {
+  $Global:__linguo_original_prompt = $function:prompt
+  function global:prompt {
+    _linguo_hook
+    & $Global:__linguo_original_prompt
+  }
+}
 _linguo_hook"#
         }
     };
@@ -136,6 +151,20 @@ pub fn env(shell: Shell) -> Result<()> {
                 println!("set -gx {DIRS_VAR} {}", quote(&dirs_value));
             }
         }
+        Shell::Powershell => {
+            let new_path = std::env::join_paths(&new_dirs)?;
+            println!("$env:PATH = {}", quote_ps(&new_path.to_string_lossy()));
+            if desired.is_empty() {
+                println!("Remove-Item Env:\\{DIRS_VAR} -ErrorAction SilentlyContinue");
+            } else {
+                println!("$env:{DIRS_VAR} = {}", quote_ps(&dirs_value));
+            }
+        }
     }
     Ok(())
+}
+
+/// PowerShell single-quoted string: only `'` needs escaping (doubled).
+fn quote_ps(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "''"))
 }

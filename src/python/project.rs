@@ -45,7 +45,8 @@ fn ensure_venv(root: &Path) -> Result<PathBuf> {
         return Ok(venv);
     }
     let version = store::required_toolchain(super::LANGUAGE, root)?;
-    let python = super::dist::bin_dir(&super::toolchain_path(&version)?).join("python3");
+    let python =
+        super::dist::bin_dir(&super::toolchain_path(&version)?).join(super::dist::python_exe());
     eprintln!("creating {} with python {version}", venv.display());
     let status = Command::new(&python)
         .args(["-m", "venv"])
@@ -60,7 +61,7 @@ fn ensure_venv(root: &Path) -> Result<PathBuf> {
 
 fn pip(root: &Path) -> Result<Command> {
     ensure_venv(root)?;
-    let python = venv_bin_dir(root).join("python3");
+    let python = venv_bin_dir(root).join(super::dist::python_exe());
     let mut cmd = Command::new(python);
     cmd.args(["-m", "pip", "--disable-pip-version-check"]);
     cmd.current_dir(root);
@@ -282,8 +283,7 @@ pub fn which(command: Option<String>) -> Result<()> {
     };
     for dir in &dirs {
         for name in &candidates {
-            let path = dir.join(name);
-            if exec::is_executable(&path) {
+            if let Some(path) = exec::find_in_dir(dir, name) {
                 println!("{}", path.display());
                 return Ok(());
             }
