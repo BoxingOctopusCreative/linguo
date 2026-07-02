@@ -52,7 +52,8 @@ _linguo_hook"#
         }
         Shell::Powershell => {
             r#"function global:_linguo_hook {
-  linguo env --shell powershell | Out-String | Invoke-Expression
+  $linguoEnv = (linguo env --shell powershell | Out-String)
+  if ($linguoEnv.Trim()) { Invoke-Expression $linguoEnv }
 }
 if (-not $Global:__linguo_original_prompt) {
   $Global:__linguo_original_prompt = $function:prompt
