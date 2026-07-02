@@ -5,6 +5,7 @@ mod go;
 mod node;
 mod python;
 mod ruby;
+mod rust;
 mod shell;
 mod status;
 mod store;
@@ -47,6 +48,11 @@ enum Command {
     Ruby {
         #[command(subcommand)]
         command: RubyCommand,
+    },
+    /// Manage Rust toolchains and projects
+    Rust {
+        #[command(subcommand)]
+        command: RustCommand,
     },
     /// Manage Terraform toolchains
     #[command(alias = "tf")]
@@ -208,6 +214,41 @@ enum RubyCommand {
 }
 
 #[derive(Subcommand)]
+enum RustCommand {
+    /// Download and install a toolchain (latest stable if no version is given)
+    Install { version: Option<String> },
+    /// Remove an installed toolchain
+    Uninstall { version: String },
+    /// List installed toolchains
+    List {
+        /// List versions available for download instead
+        #[arg(long)]
+        available: bool,
+    },
+    /// Pin a version for this directory (or globally)
+    Use {
+        version: String,
+        #[arg(long)]
+        global: bool,
+    },
+    /// Create a new project: cargo init and version pin
+    Init { name: Option<String> },
+    /// cargo add crates to the project
+    Add { crates: Vec<String> },
+    /// cargo remove crates from the project
+    Remove { crates: Vec<String> },
+    /// Download everything Cargo.toml declares (cargo fetch)
+    Sync,
+    /// Show which executable a command resolves to (default: cargo)
+    Which { command: Option<String> },
+    /// Run a command with the pinned toolchain on PATH
+    Run {
+        #[arg(trailing_var_arg = true, required = true)]
+        args: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
 enum TerraformCommand {
     /// Download and install a toolchain (latest stable if no version is given)
     Install { version: Option<String> },
@@ -292,6 +333,20 @@ fn main() -> anyhow::Result<()> {
             RubyCommand::Sync => ruby::project::sync(),
             RubyCommand::Which { command } => ruby::project::which(command),
             RubyCommand::Run { args } => ruby::project::run(&args),
+        },
+        Command::Rust { command } => match command {
+            RustCommand::Install { version } => rust::install(version),
+            RustCommand::Uninstall { version } => store::uninstall(rust::LANGUAGE, &version),
+            RustCommand::List { available } => rust::list(available),
+            RustCommand::Use { version, global } => {
+                store::use_version(rust::LANGUAGE, &version, global)
+            }
+            RustCommand::Init { name } => rust::project::init(name),
+            RustCommand::Add { crates } => rust::project::add(&crates),
+            RustCommand::Remove { crates } => rust::project::remove(&crates),
+            RustCommand::Sync => rust::project::sync(),
+            RustCommand::Which { command } => rust::project::which(command),
+            RustCommand::Run { args } => rust::project::run(&args),
         },
         Command::Terraform { command } => match command {
             TerraformCommand::Install { version } => terraform::install(version),

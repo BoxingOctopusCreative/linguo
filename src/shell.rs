@@ -8,7 +8,7 @@ use anyhow::Result;
 use clap::ValueEnum;
 
 use crate::config::PinSource;
-use crate::{go, node, python, ruby, terraform};
+use crate::{go, node, python, ruby, rust, terraform};
 
 /// Env var tracking which directories linguo has prepended to PATH, so they
 /// can be removed again when the active project changes.
@@ -100,6 +100,9 @@ fn desired_dirs() -> Result<Vec<PathBuf>> {
     }
     if let Some((_, version)) = go::resolve_active(&cwd)? {
         dirs.push(go::dist::bin_dir(&go::toolchain_path(&version)?));
+    }
+    if let Some((_, version)) = rust::resolve_active(&cwd)? {
+        dirs.push(rust::dist::bin_dir(&rust::toolchain_path(&version)?));
     }
     if let Some((_, dist, version)) = terraform::resolve_active(&cwd)? {
         dirs.push(terraform::dist::bin_dir(&terraform::toolchain_path(

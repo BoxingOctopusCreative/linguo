@@ -4,10 +4,11 @@ use anyhow::{Context, Result};
 
 use crate::config::{self, PinSource};
 use crate::versions::VersionReq;
-use crate::{store, terraform};
+use crate::{rust, store, terraform};
 
-/// Languages whose pins are plain version requests; terraform is handled
-/// separately because its pins carry a distribution.
+/// Languages whose pins are plain version requests resolved from linguo
+/// config alone; rust (rust-toolchain.toml fallback) and terraform
+/// (distribution-qualified pins) print their own sections.
 const GENERIC_LANGUAGES: &[&str] = &["python", "node", "ruby", "go"];
 
 pub fn status() -> Result<()> {
@@ -50,5 +51,6 @@ pub fn status() -> Result<()> {
             }
         }
     }
+    rust::print_status(&cwd)?;
     terraform::print_status(&cwd)
 }
