@@ -1,15 +1,18 @@
 //! `linguo status`: cross-language overview of toolchains and active pins.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::config::{self, PinSource};
-use crate::store;
+use crate::versions::VersionReq;
+use crate::{store, terraform};
 
-pub const LANGUAGES: &[&str] = &["python", "node", "go", "terraform"];
+/// Languages whose pins are plain version requests; terraform is handled
+/// separately because its pins carry a distribution.
+const GENERIC_LANGUAGES: &[&str] = &["python", "node", "go"];
 
 pub fn status() -> Result<()> {
     let cwd = std::env::current_dir()?;
-    for &language in LANGUAGES {
+    for &language in GENERIC_LANGUAGES {
         println!("{language}");
 
         let installed = store::installed_versions(language)?;
@@ -31,17 +34,21 @@ pub fn status() -> Result<()> {
                     PinSource::Project(path) => path.display().to_string(),
                     PinSource::Global => "global config".to_string(),
                 };
-                match store::find_installed(language, &pin.req)? {
+                let req: VersionReq = pin
+                    .raw
+                    .parse()
+                    .with_context(|| format!("invalid {language} version '{}' pinned", pin.raw))?;
+                match store::find_installed(language, &req)? {
                     Some(version) => {
-                        println!("  active: {version} (pinned to {} by {source})", pin.req);
+                        println!("  active: {version} (pinned to {} by {source})", pin.raw);
                     }
                     None => println!(
                         "  active: none ({} pinned by {source} but not installed — run `linguo {language} install {}`)",
-                        pin.req, pin.req
+                        pin.raw, pin.raw
                     ),
                 }
             }
         }
     }
-    Ok(())
+    terraform::print_status(&cwd)
 }

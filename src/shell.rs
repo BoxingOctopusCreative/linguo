@@ -83,9 +83,9 @@ fn desired_dirs() -> Result<Vec<PathBuf>> {
     if let Some((_, version)) = go::resolve_active(&cwd)? {
         dirs.push(go::dist::bin_dir(&go::toolchain_path(&version)?));
     }
-    if let Some((_, version)) = terraform::resolve_active(&cwd)? {
+    if let Some((_, dist, version)) = terraform::resolve_active(&cwd)? {
         dirs.push(terraform::dist::bin_dir(&terraform::toolchain_path(
-            &version,
+            dist, &version,
         )?));
     }
     Ok(dirs)

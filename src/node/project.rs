@@ -109,7 +109,11 @@ pub fn init(name: Option<String>) -> Result<()> {
         .with_context(|| format!("failed to write {}", package_path.display()))?;
 
     let req = VersionReq::Major(version.major);
-    crate::config::write_pin(&cwd.join(crate::config::PIN_FILE), super::LANGUAGE, &req)?;
+    crate::config::write_pin(
+        &cwd.join(crate::config::PIN_FILE),
+        super::LANGUAGE,
+        &req.to_string(),
+    )?;
 
     println!("initialized project '{name}' with node {version}");
     Ok(())

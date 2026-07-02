@@ -240,13 +240,9 @@ fn main() -> anyhow::Result<()> {
         },
         Command::Terraform { command } => match command {
             TerraformCommand::Install { version } => terraform::install(version),
-            TerraformCommand::Uninstall { version } => {
-                store::uninstall(terraform::LANGUAGE, &version)
-            }
+            TerraformCommand::Uninstall { version } => terraform::uninstall(&version),
             TerraformCommand::List { available } => terraform::list(available),
-            TerraformCommand::Use { version, global } => {
-                store::use_version(terraform::LANGUAGE, &version, global)
-            }
+            TerraformCommand::Use { version, global } => terraform::use_version(&version, global),
             TerraformCommand::Which { command } => terraform::which(command),
             TerraformCommand::Run { args } => terraform::run(&args),
         },

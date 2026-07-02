@@ -62,6 +62,13 @@ linguo go run -- go build ./...
 linguo terraform install 1.13    # `linguo tf ...` works too
 linguo tf use 1.13
 linguo tf run -- terraform plan
+
+# OpenTofu is a drop-in distribution under the same command: versions are
+# spelled opentofu@<version>, and which/run/the shell hook resolve the
+# `tofu` binary when an opentofu pin is active
+linguo tf install opentofu@1.12
+linguo tf use opentofu@1.12      # writes terraform = "opentofu@1.12"
+linguo tf run -- tofu plan
 ```
 
 Version pins live in `linguo.toml`:

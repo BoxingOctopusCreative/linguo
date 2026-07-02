@@ -36,12 +36,21 @@ pub fn find_installed(language: &str, req: &VersionReq) -> Result<Option<Version
     Ok(req.best_match(installed_versions(language)?))
 }
 
+/// Parse a pin's value as a plain version request (how every language except
+/// terraform interprets pins).
+fn pin_req(language: &str, pin: &Pin) -> Result<VersionReq> {
+    pin.raw
+        .parse()
+        .with_context(|| format!("invalid {language} version '{}' pinned", pin.raw))
+}
+
 /// Resolve the active toolchain for `cwd`: pin -> installed version.
 pub fn resolve_active(language: &str, cwd: &Path) -> Result<Option<(Pin, Version)>> {
     let Some(pin) = config::resolve_pin(language, cwd)? else {
         return Ok(None);
     };
-    match find_installed(language, &pin.req)? {
+    let req = pin_req(language, &pin)?;
+    match find_installed(language, &req)? {
         Some(version) => Ok(Some((pin, version))),
         None => Ok(None),
     }
@@ -54,10 +63,10 @@ pub fn required_toolchain(language: &str, dir: &Path) -> Result<Version> {
             "no {language} version pinned (run `linguo {language} use <version>` or `linguo {language} init`)"
         );
     };
-    find_installed(language, &pin.req)?.with_context(|| {
+    let req = pin_req(language, &pin)?;
+    find_installed(language, &req)?.with_context(|| {
         format!(
-            "{language} {} is pinned but not installed (run `linguo {language} install {}`)",
-            pin.req, pin.req
+            "{language} {req} is pinned but not installed (run `linguo {language} install {req}`)"
         )
     })
 }
@@ -138,7 +147,7 @@ pub fn use_version(language: &str, raw: &str, global: bool) -> Result<()> {
     } else {
         std::env::current_dir()?.join(config::PIN_FILE)
     };
-    config::write_pin(&path, language, &req)?;
+    config::write_pin(&path, language, &req.to_string())?;
     println!("pinned {language} to {req} in {}", path.display());
     if find_installed(language, &req)?.is_none() {
         println!("note: no installed toolchain matches; run `linguo {language} install {req}`");

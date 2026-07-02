@@ -3,8 +3,6 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use toml_edit::{DocumentMut, Item, Table, value};
 
-use crate::versions::VersionReq;
-
 pub const PIN_FILE: &str = "linguo.toml";
 pub const GLOBAL_CONFIG: &str = "config.toml";
 
@@ -28,9 +26,12 @@ pub enum PinSource {
     Global,
 }
 
+/// A pin as written in a pin file. The value is uninterpreted here: most
+/// languages parse it as a version request, but backends may support richer
+/// specs (e.g. terraform's `opentofu@1.10`).
 #[derive(Debug, Clone)]
 pub struct Pin {
-    pub req: VersionReq,
+    pub raw: String,
     pub source: PinSource,
 }
 
@@ -42,50 +43,44 @@ pub fn find_pin_file(start: &Path) -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
-fn read_pin_from(path: &Path, language: &str) -> Result<Option<VersionReq>> {
+fn read_pin_from(path: &Path, language: &str) -> Result<Option<String>> {
     let text = std::fs::read_to_string(path)
         .with_context(|| format!("failed to read {}", path.display()))?;
     let doc: DocumentMut = text
         .parse()
         .with_context(|| format!("failed to parse {}", path.display()))?;
-    let Some(raw) = doc
+    Ok(doc
         .get("runtimes")
         .and_then(|t| t.get(language))
         .and_then(|v| v.as_str())
-    else {
-        return Ok(None);
-    };
-    let req = raw
-        .parse()
-        .with_context(|| format!("invalid {language} version '{raw}' in {}", path.display()))?;
-    Ok(Some(req))
+        .map(str::to_string))
 }
 
-/// Resolve the pinned version request for `language`: nearest project
-/// `linguo.toml` first, then the global config.
+/// Resolve the pin for `language`: nearest project `linguo.toml` first, then
+/// the global config.
 pub fn resolve_pin(language: &str, cwd: &Path) -> Result<Option<Pin>> {
     if let Some(path) = find_pin_file(cwd)
-        && let Some(req) = read_pin_from(&path, language)?
+        && let Some(raw) = read_pin_from(&path, language)?
     {
         return Ok(Some(Pin {
-            req,
+            raw,
             source: PinSource::Project(path),
         }));
     }
     let global = linguo_root()?.join(GLOBAL_CONFIG);
     if global.is_file()
-        && let Some(req) = read_pin_from(&global, language)?
+        && let Some(raw) = read_pin_from(&global, language)?
     {
         return Ok(Some(Pin {
-            req,
+            raw,
             source: PinSource::Global,
         }));
     }
     Ok(None)
 }
 
-/// Set `[runtimes] <language> = "<req>"` in `path`, creating the file if needed.
-pub fn write_pin(path: &Path, language: &str, req: &VersionReq) -> Result<()> {
+/// Set `[runtimes] <language> = "<raw>"` in `path`, creating the file if needed.
+pub fn write_pin(path: &Path, language: &str, raw: &str) -> Result<()> {
     let mut doc: DocumentMut = match std::fs::read_to_string(path) {
         Ok(text) => text
             .parse()
@@ -98,7 +93,7 @@ pub fn write_pin(path: &Path, language: &str, req: &VersionReq) -> Result<()> {
     if doc.get("runtimes").is_none() {
         doc["runtimes"] = Item::Table(Table::new());
     }
-    doc["runtimes"][language] = value(req.to_string());
+    doc["runtimes"][language] = value(raw);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("failed to create {}", parent.display()))?;
@@ -125,7 +120,7 @@ mod tests {
 
         assert_eq!(
             read_pin_from(&pin_path, "python").unwrap(),
-            Some("3.12".parse().unwrap())
+            Some("3.12".to_string())
         );
         assert_eq!(read_pin_from(&pin_path, "go").unwrap(), None);
     }
@@ -136,7 +131,7 @@ mod tests {
         let path = tmp.path().join(PIN_FILE);
         std::fs::write(&path, "# project pins\n[runtimes]\ngo = \"1.22\"\n").unwrap();
 
-        write_pin(&path, "python", &"3.12".parse().unwrap()).unwrap();
+        write_pin(&path, "python", "3.12").unwrap();
 
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.contains("# project pins"));
@@ -148,10 +143,10 @@ mod tests {
     fn write_pin_creates_new_file() {
         let tmp = tempfile::tempdir().unwrap();
         let path = tmp.path().join(PIN_FILE);
-        write_pin(&path, "python", &"3.13".parse().unwrap()).unwrap();
+        write_pin(&path, "python", "3.13").unwrap();
         assert_eq!(
             read_pin_from(&path, "python").unwrap(),
-            Some("3.13".parse().unwrap())
+            Some("3.13".to_string())
         );
     }
 }

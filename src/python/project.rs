@@ -198,7 +198,11 @@ dependencies = []
         .with_context(|| format!("failed to write {}", pyproject_path.display()))?;
 
     let req = VersionReq::MajorMinor(version.major, version.minor);
-    config::write_pin(&cwd.join(config::PIN_FILE), super::LANGUAGE, &req)?;
+    config::write_pin(
+        &cwd.join(config::PIN_FILE),
+        super::LANGUAGE,
+        &req.to_string(),
+    )?;
     ensure_venv(&cwd)?;
 
     println!("initialized project '{name}' with python {version}");

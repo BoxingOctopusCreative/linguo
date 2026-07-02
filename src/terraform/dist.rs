@@ -1,4 +1,5 @@
-//! Fetching Terraform builds from releases.hashicorp.com.
+//! Fetching Terraform builds from releases.hashicorp.com and OpenTofu builds
+//! from get.opentofu.org / GitHub releases.
 
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -7,10 +8,12 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 
+use super::Distribution;
 use crate::fetch;
 use crate::versions::Version;
 
-const INDEX_URL: &str = "https://releases.hashicorp.com/terraform/index.json";
+const TERRAFORM_INDEX_URL: &str = "https://releases.hashicorp.com/terraform/index.json";
+const OPENTOFU_INDEX_URL: &str = "https://get.opentofu.org/tofu/api.json";
 
 /// (os, arch) in releases.hashicorp.com naming.
 fn platform() -> Result<(&'static str, &'static str)> {
@@ -51,13 +54,20 @@ pub struct AvailableBuild {
     shasums_url: String,
 }
 
-/// All stable Terraform versions with a build for the current platform,
+/// All stable versions of `dist` with a build for the current platform,
 /// ascending. Prereleases (e.g. `1.16.0-alpha20260701`) don't parse as plain
 /// semver and are skipped.
-pub fn fetch_available() -> Result<Vec<AvailableBuild>> {
+pub fn fetch_available(dist: Distribution) -> Result<Vec<AvailableBuild>> {
+    match dist {
+        Distribution::Terraform => fetch_terraform(),
+        Distribution::OpenTofu => fetch_opentofu(),
+    }
+}
+
+fn fetch_terraform() -> Result<Vec<AvailableBuild>> {
     let (os, arch) = platform()?;
     let index: Index = fetch::client()?
-        .get(INDEX_URL)
+        .get(TERRAFORM_INDEX_URL)
         .send()
         .context("failed to query releases.hashicorp.com")?
         .error_for_status()
@@ -82,6 +92,54 @@ pub fn fetch_available() -> Result<Vec<AvailableBuild>> {
                     "https://releases.hashicorp.com/terraform/{}/{}",
                     release.version, release.shasums
                 ),
+            })
+        })
+        .collect();
+    builds.sort_by_key(|b| b.version);
+    Ok(builds)
+}
+
+#[derive(Debug, Deserialize)]
+struct TofuIndex {
+    versions: Vec<TofuVersion>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TofuVersion {
+    id: String,
+    files: Vec<String>,
+}
+
+fn fetch_opentofu() -> Result<Vec<AvailableBuild>> {
+    let (os, arch) = platform()?;
+    let index: TofuIndex = fetch::client()?
+        .get(OPENTOFU_INDEX_URL)
+        .send()
+        .context("failed to query get.opentofu.org")?
+        .error_for_status()
+        .context("opentofu release index query failed")?
+        .json()
+        .context("failed to parse opentofu release index")?;
+
+    let mut builds: Vec<AvailableBuild> = index
+        .versions
+        .into_iter()
+        .filter_map(|release| {
+            let version: Version = release.id.parse().ok()?;
+            let filename = format!("tofu_{}_{os}_{arch}.zip", release.id);
+            let shasums = format!("tofu_{}_SHA256SUMS", release.id);
+            if !release.files.contains(&filename) || !release.files.contains(&shasums) {
+                return None;
+            }
+            let base = format!(
+                "https://github.com/opentofu/opentofu/releases/download/v{}",
+                release.id
+            );
+            Some(AvailableBuild {
+                version,
+                url: format!("{base}/{filename}"),
+                filename,
+                shasums_url: format!("{base}/{shasums}"),
             })
         })
         .collect();
@@ -115,8 +173,8 @@ fn extract_zip(archive: &[u8], dest: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Download the build, verify its checksum, and extract it so that
-/// `dest/terraform` exists.
+/// Download the build, verify its checksum, and extract it so that the
+/// distribution's binary (`terraform` or `tofu`) sits at the top of `dest`.
 pub fn install_build(build: &AvailableBuild, dest: &Path) -> Result<()> {
     let http = fetch::client()?;
 

@@ -93,7 +93,11 @@ pub fn init(module: Option<String>) -> Result<()> {
     run_checked(cmd.args(["mod", "init", &module]), "go mod init")?;
 
     let req = VersionReq::MajorMinor(version.major, version.minor);
-    crate::config::write_pin(&cwd.join(crate::config::PIN_FILE), super::LANGUAGE, &req)?;
+    crate::config::write_pin(
+        &cwd.join(crate::config::PIN_FILE),
+        super::LANGUAGE,
+        &req.to_string(),
+    )?;
 
     println!("initialized module '{module}' with go {version}");
     Ok(())
