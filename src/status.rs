@@ -5,7 +5,7 @@ use anyhow::Result;
 use crate::config::{self, PinSource};
 use crate::store;
 
-pub const LANGUAGES: &[&str] = &["python", "node"];
+pub const LANGUAGES: &[&str] = &["python", "node", "go"];
 
 pub fn status() -> Result<()> {
     let cwd = std::env::current_dir()?;

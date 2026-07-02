@@ -8,7 +8,7 @@ use anyhow::Result;
 use clap::ValueEnum;
 
 use crate::config::PinSource;
-use crate::{node, python};
+use crate::{go, node, python};
 
 /// Env var tracking which directories linguo has prepended to PATH, so they
 /// can be removed again when the active project changes.
@@ -79,6 +79,9 @@ fn desired_dirs() -> Result<Vec<PathBuf>> {
             }
         }
         dirs.push(node::dist::bin_dir(&node::toolchain_path(&version)?));
+    }
+    if let Some((_, version)) = go::resolve_active(&cwd)? {
+        dirs.push(go::dist::bin_dir(&go::toolchain_path(&version)?));
     }
     Ok(dirs)
 }

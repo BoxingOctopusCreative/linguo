@@ -1,6 +1,7 @@
 mod config;
 mod exec;
 mod fetch;
+mod go;
 mod node;
 mod python;
 mod shell;
@@ -30,6 +31,11 @@ enum Command {
     Node {
         #[command(subcommand)]
         command: NodeCommand,
+    },
+    /// Manage Go toolchains and projects
+    Go {
+        #[command(subcommand)]
+        command: GoCommand,
     },
     /// Overview of all languages: installed toolchains and active pins
     #[command(alias = "list")]
@@ -114,6 +120,41 @@ enum NodeCommand {
     },
 }
 
+#[derive(Subcommand)]
+enum GoCommand {
+    /// Download and install a toolchain (latest stable if no version is given)
+    Install { version: Option<String> },
+    /// Remove an installed toolchain
+    Uninstall { version: String },
+    /// List installed toolchains
+    List {
+        /// List versions available for download instead
+        #[arg(long)]
+        available: bool,
+    },
+    /// Pin a version for this directory (or globally)
+    Use {
+        version: String,
+        #[arg(long)]
+        global: bool,
+    },
+    /// Create a new module: go mod init and version pin
+    Init { module: Option<String> },
+    /// go get packages into the module
+    Add { packages: Vec<String> },
+    /// Drop packages from the module (go get pkg@none)
+    Remove { packages: Vec<String> },
+    /// Download everything go.mod declares
+    Sync,
+    /// Show which executable a command resolves to (default: go)
+    Which { command: Option<String> },
+    /// Run a command with the pinned toolchain on PATH
+    Run {
+        #[arg(trailing_var_arg = true, required = true)]
+        args: Vec<String>,
+    },
+}
+
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
@@ -144,6 +185,20 @@ fn main() -> anyhow::Result<()> {
             NodeCommand::Sync => node::project::sync(),
             NodeCommand::Which { command } => node::project::which(command),
             NodeCommand::Run { args } => node::project::run(&args),
+        },
+        Command::Go { command } => match command {
+            GoCommand::Install { version } => go::install(version),
+            GoCommand::Uninstall { version } => store::uninstall(go::LANGUAGE, &version),
+            GoCommand::List { available } => go::list(available),
+            GoCommand::Use { version, global } => {
+                store::use_version(go::LANGUAGE, &version, global)
+            }
+            GoCommand::Init { module } => go::project::init(module),
+            GoCommand::Add { packages } => go::project::add(&packages),
+            GoCommand::Remove { packages } => go::project::remove(&packages),
+            GoCommand::Sync => go::project::sync(),
+            GoCommand::Which { command } => go::project::which(command),
+            GoCommand::Run { args } => go::project::run(&args),
         },
         Command::Status => status::status(),
         Command::Activate { shell } => {

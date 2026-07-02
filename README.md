@@ -3,8 +3,8 @@
 Cross-platform, multi-language runtime, package, and project manager — think
 uv, but for Python, Go, Node.js, Ruby, Rust, and Terraform.
 
-Commands follow the shape `linguo <language> <command>`. Python and Node.js
-are supported so far; the other languages will follow the same command
+Commands follow the shape `linguo <language> <command>`. Python, Node.js, and
+Go are supported so far; the other languages will follow the same command
 surface.
 
 ## Install
@@ -49,6 +49,13 @@ linguo node init
 linguo node add typescript
 linguo node run -- tsc --version
 linguo node which tsc
+
+# So does Go (toolchains from go.dev/dl, sha256-verified; projects are plain
+# go.mod managed through the pinned toolchain's go tool)
+linguo go install                 # latest stable if no version is given
+linguo go init my-module
+linguo go add rsc.io/quote
+linguo go run -- go build ./...
 ```
 
 Version pins live in `linguo.toml`:
