@@ -31,10 +31,15 @@ Ruby is not yet available on Windows (no upstream relocatable builds).
 
 ## Install
 
-Download a release binary, or build from source:
+Download a release binary (deb/rpm/MSI packages and tarballs are on the
+releases page), install via Homebrew from a personal tap (every release
+attaches a ready-made `linguo.rb` formula, also kept at
+[packaging/homebrew/linguo.rb](packaging/homebrew/linguo.rb)), or build from
+source:
 
 ```sh
-cargo install --path .
+brew install <your-tap>/linguo   # after adding linguo.rb to your tap
+cargo install --path .           # from a checkout
 ```
 
 Then add the shell hook to your rc file so pinned runtimes activate
