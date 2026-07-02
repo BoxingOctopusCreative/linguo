@@ -1,7 +1,7 @@
-# linguo
+# Linguo
 
-Cross-platform, multi-language runtime, package, and project manager — think
-uv, but for **Python, Node.js, Ruby, Rust, Go, and Terraform/OpenTofu**.
+Linguo is a cross-platform, multi-language runtime, package, and project manager — think
+[`uv`](https://github.com/astral-sh/uv), but for **Python, Node.js, Ruby, Rust, Go, and Terraform/OpenTofu**.
 
 One binary manages runtime versions, per-project pins, and project workflows
 for every language, with the same command shape everywhere:
