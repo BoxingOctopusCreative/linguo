@@ -5,8 +5,6 @@ use std::process::Command;
 
 use anyhow::{Context, Result, bail};
 
-use crate::versions::VersionReq;
-
 const CARGO_TOML: &str = "Cargo.toml";
 
 /// Nearest ancestor directory (including `start`) containing a Cargo.toml.
@@ -25,8 +23,8 @@ fn project_root() -> Result<PathBuf> {
 }
 
 fn toolchain_bin(dir: &Path) -> Result<PathBuf> {
-    let version = crate::store::required_toolchain(super::LANGUAGE, dir)?;
-    Ok(super::dist::bin_dir(&super::toolchain_path(&version)?))
+    let toolchain = super::required_toolchain(dir)?;
+    Ok(super::dist::bin_dir(&super::toolchain_dir(&toolchain)?))
 }
 
 fn prepended_path(dirs: &[PathBuf]) -> Result<std::ffi::OsString> {
@@ -63,10 +61,10 @@ pub fn init(name: Option<String>) -> Result<()> {
         bail!("{} already exists", cwd.join(CARGO_TOML).display());
     }
 
-    let version = super::pick_project_version(&cwd)?;
+    let toolchain = super::pick_project_toolchain(&cwd)?;
 
     // Not the cargo() helper: the pin this project will use is written below.
-    let bin = super::dist::bin_dir(&super::toolchain_path(&version)?);
+    let bin = super::dist::bin_dir(&super::toolchain_dir(&toolchain)?);
     let mut cmd = cargo_in(&cwd, bin)?;
     cmd.arg("init");
     if let Some(name) = &name {
@@ -74,14 +72,13 @@ pub fn init(name: Option<String>) -> Result<()> {
     }
     run_checked(&mut cmd, "cargo init")?;
 
-    let req = VersionReq::MajorMinor(version.major, version.minor);
     crate::config::write_pin(
         &cwd.join(crate::config::PIN_FILE),
         super::LANGUAGE,
-        &req.to_string(),
+        &super::pin_value(&toolchain),
     )?;
 
-    println!("initialized cargo project with rust {version}");
+    println!("initialized cargo project with rust {toolchain}");
     Ok(())
 }
 

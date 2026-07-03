@@ -305,6 +305,28 @@ enum RustCommand {
         #[arg(trailing_var_arg = true, required = true)]
         args: Vec<String>,
     },
+    /// Manage the active toolchain's components (rust-analyzer, rust-src, ...)
+    Component {
+        #[command(subcommand)]
+        command: RustComponentCommand,
+    },
+    /// Manage the active toolchain's cross-compilation targets
+    Target {
+        #[command(subcommand)]
+        command: RustTargetCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum RustComponentCommand {
+    /// Install components into the active toolchain
+    Add { names: Vec<String> },
+}
+
+#[derive(Subcommand)]
+enum RustTargetCommand {
+    /// Install rust-std for extra target triples into the active toolchain
+    Add { triples: Vec<String> },
 }
 
 #[derive(Subcommand)]
@@ -450,11 +472,9 @@ fn main() -> anyhow::Result<()> {
         },
         Command::Rust { command } => match command {
             RustCommand::Install { version } => rust::install(version),
-            RustCommand::Uninstall { version } => store::uninstall(rust::LANGUAGE, &version),
+            RustCommand::Uninstall { version } => rust::uninstall(&version),
             RustCommand::List { available } => rust::list(available),
-            RustCommand::Use { version, global } => {
-                store::use_version(rust::LANGUAGE, &version, global)
-            }
+            RustCommand::Use { version, global } => rust::use_version(&version, global),
             RustCommand::Upgrade { latest, prune } => rust::upgrade(latest, prune),
             RustCommand::Init { name } => rust::project::init(name),
             RustCommand::Add { crates } => rust::project::add(&crates),
@@ -462,6 +482,12 @@ fn main() -> anyhow::Result<()> {
             RustCommand::Sync => rust::project::sync(),
             RustCommand::Which { command } => rust::project::which(command),
             RustCommand::Run { args } => rust::project::run(&args),
+            RustCommand::Component { command } => match command {
+                RustComponentCommand::Add { names } => rust::component_add(&names),
+            },
+            RustCommand::Target { command } => match command {
+                RustTargetCommand::Add { triples } => rust::target_add(&triples),
+            },
         },
         Command::Terraform { command } => match command {
             TerraformCommand::Install { version } => terraform::install(version),

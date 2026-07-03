@@ -487,10 +487,27 @@ mod tests {
             "[toolchain]\nchannel = \"1.96.1\"\n",
         );
         assert_eq!(resolve_pin("rust", dir).unwrap().unwrap().raw, "1.96.1");
+        // Channel names are valid rust pins now...
+        write(
+            dir,
+            "rust-toolchain.toml",
+            "[toolchain]\nchannel = \"nightly-2026-07-01\"\n",
+        );
+        assert_eq!(
+            resolve_pin("rust", dir).unwrap().unwrap().raw,
+            "nightly-2026-07-01"
+        );
         write(
             dir,
             "rust-toolchain.toml",
             "[toolchain]\nchannel = \"stable\"\n",
+        );
+        assert_eq!(resolve_pin("rust", dir).unwrap().unwrap().raw, "stable");
+        // ...but arbitrary custom toolchain names still aren't.
+        write(
+            dir,
+            "rust-toolchain.toml",
+            "[toolchain]\nchannel = \"my-custom-toolchain\"\n",
         );
         assert!(resolve_pin("rust", dir).unwrap().is_none());
 

@@ -105,8 +105,8 @@ fn desired_dirs() -> Result<Vec<PathBuf>> {
     if let Some((_, version)) = auto(go::LANGUAGE, &|v| go::install(Some(v.into())))? {
         dirs.push(go::dist::bin_dir(&go::toolchain_path(&version)?));
     }
-    if let Some((_, version)) = auto(rust::LANGUAGE, &|v| rust::install(Some(v.into())))? {
-        dirs.push(rust::dist::bin_dir(&rust::toolchain_path(&version)?));
+    if let Some((_, toolchain)) = rust::resolve_active_auto(&cwd)? {
+        dirs.push(rust::dist::bin_dir(&rust::toolchain_dir(&toolchain)?));
     }
     if let Some((_, dist, version)) = terraform::resolve_active_auto(&cwd)? {
         dirs.push(terraform::dist::bin_dir(&terraform::toolchain_path(

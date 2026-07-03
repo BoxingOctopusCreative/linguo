@@ -4,12 +4,12 @@ use anyhow::{Context, Result};
 
 use crate::config::PinSource;
 use crate::versions::VersionReq;
-use crate::{store, terraform};
+use crate::{rust, store, terraform};
 
 /// Languages whose pins are plain version requests (including ecosystem
 /// pin-file fallbacks, which store::resolve_pin handles); terraform prints
 /// its own section because its pins carry a distribution.
-const GENERIC_LANGUAGES: &[&str] = &["python", "node", "ruby", "go", "rust"];
+const GENERIC_LANGUAGES: &[&str] = &["python", "node", "ruby", "go"];
 
 pub fn status() -> Result<()> {
     let cwd = std::env::current_dir()?;
@@ -51,5 +51,6 @@ pub fn status() -> Result<()> {
             }
         }
     }
+    rust::print_status(&cwd)?;
     terraform::print_status(&cwd)
 }

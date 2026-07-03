@@ -58,10 +58,40 @@ pub fn fetch_available() -> Result<Vec<Version>> {
     Ok(versions)
 }
 
-/// Fetch the channel manifest for a channel name (`stable`, `1.96`, or
-/// `1.96.1`) and return it with the exact version it resolved to.
-pub fn fetch_manifest(channel: &str) -> Result<(Version, DocumentMut)> {
-    let url = format!("{DIST_BASE}/channel-rust-{channel}.toml");
+/// A fetched channel manifest plus the metadata linguo needs from it.
+pub struct Manifest {
+    pub doc: DocumentMut,
+    /// The manifest's build date (`2026-07-02`), which names dated toolchains.
+    pub date: String,
+    /// Raw `[pkg.rust].version`, e.g. `1.98.0-nightly (abcdef 2026-07-01)`.
+    pub rust_version: String,
+}
+
+impl Manifest {
+    /// The plain semver version, for release (non-prerelease) channels.
+    pub fn release_version(&self) -> Result<Version> {
+        self.rust_version
+            .split_whitespace()
+            .next()
+            .unwrap_or(&self.rust_version)
+            .parse()
+            .with_context(|| {
+                format!(
+                    "unexpected rust version '{}' in manifest",
+                    self.rust_version
+                )
+            })
+    }
+}
+
+/// Fetch a channel manifest. `channel` is the manifest name (`stable`,
+/// `beta`, `nightly`, `1.96`, or `1.96.1`); `date` selects a dated snapshot
+/// (`dist/<date>/channel-rust-<channel>.toml`) instead of the current one.
+pub fn fetch_manifest(channel: &str, date: Option<&str>) -> Result<Manifest> {
+    let url = match date {
+        Some(date) => format!("{DIST_BASE}/{date}/channel-rust-{channel}.toml"),
+        None => format!("{DIST_BASE}/channel-rust-{channel}.toml"),
+    };
     let text = fetch::client()?
         .get(&url)
         .send()
@@ -70,20 +100,70 @@ pub fn fetch_manifest(channel: &str) -> Result<(Version, DocumentMut)> {
         .text()?;
     let doc: DocumentMut = text.parse().context("failed to parse channel manifest")?;
 
-    // [pkg.rust].version is e.g. `1.96.1 (31fca3adb 2026-06-26)`.
-    let raw = doc
+    let date = doc
+        .get("date")
+        .and_then(|d| d.as_str())
+        .context("channel manifest has no date")?
+        .to_string();
+    let rust_version = doc
         .get("pkg")
         .and_then(|p| p.get("rust"))
         .and_then(|r| r.get("version"))
         .and_then(|v| v.as_str())
-        .context("channel manifest has no rust version")?;
-    let version: Version = raw
-        .split_whitespace()
-        .next()
-        .unwrap_or(raw)
-        .parse()
-        .with_context(|| format!("unexpected rust version '{raw}' in manifest"))?;
-    Ok((version, doc))
+        .context("channel manifest has no rust version")?
+        .to_string();
+    Ok(Manifest {
+        doc,
+        date,
+        rust_version,
+    })
+}
+
+/// Resolve a user-facing component name to the manifest's package key:
+/// several components live under `<name>-preview` in the manifests.
+fn component_package(doc: &DocumentMut, name: &str) -> Result<String> {
+    let pkg = doc.get("pkg").context("manifest has no packages")?;
+    if pkg.get(name).is_some() {
+        return Ok(name.to_string());
+    }
+    let preview = format!("{name}-preview");
+    if pkg.get(&preview).is_some() {
+        return Ok(preview);
+    }
+    bail!("unknown component '{name}' (not in this toolchain's manifest)");
+}
+
+/// The manifest target key a component installs from: target-independent
+/// components (e.g. rust-src) live under `*`.
+fn component_target_key<'a>(doc: &DocumentMut, package: &str, triple: &'a str) -> &'a str {
+    let has_star = doc
+        .get("pkg")
+        .and_then(|p| p.get(package))
+        .and_then(|c| c.get("target"))
+        .and_then(|t| t.get("*"))
+        .is_some();
+    if has_star { "*" } else { triple }
+}
+
+/// Download and merge extra `components` (by user-facing name, for the host)
+/// and `rust-std` for extra `targets` into an existing toolchain prefix.
+pub fn add_components(
+    doc: &DocumentMut,
+    dest: &Path,
+    components: &[String],
+    targets: &[String],
+) -> Result<()> {
+    let triple = target_triple()?;
+    let mut wanted: Vec<(String, String)> = Vec::new();
+    for name in components {
+        let package = component_package(doc, name)?;
+        let key = component_target_key(doc, &package, triple).to_string();
+        wanted.push((package, key));
+    }
+    for target in targets {
+        wanted.push(("rust-std".to_string(), target.clone()));
+    }
+    install_packages(doc, dest, &wanted)
 }
 
 fn component_build<'a>(
@@ -129,17 +209,16 @@ fn merge_tree(src: &Path, dst: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Download each component from the manifest, verify it, and merge all of
-/// them into `dest` so that `dest/bin/cargo` and `dest/bin/rustc` exist.
-pub fn install_channel(doc: &DocumentMut, dest: &Path) -> Result<()> {
-    let triple = target_triple()?;
+/// Download each `(package, target-key)` pair from the manifest, verify it,
+/// and merge it into the toolchain prefix at `dest`.
+fn install_packages(doc: &DocumentMut, dest: &Path, packages: &[(String, String)]) -> Result<()> {
     let http = fetch::client()?;
     let parent = dest
         .parent()
         .context("install destination has no parent directory")?;
 
-    for component in COMPONENTS {
-        let (url, hash) = component_build(doc, component, triple)?;
+    for (package, target_key) in packages {
+        let (url, hash) = component_build(doc, package, target_key)?;
         let archive_name = url.rsplit('/').next().unwrap_or(url).to_string();
 
         eprintln!("downloading {url}");
@@ -165,6 +244,37 @@ pub fn install_channel(doc: &DocumentMut, dest: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Download the default profile (rustc, cargo, rust-std, clippy, rustfmt)
+/// plus any extra `components`/`targets`, and merge everything into `dest`
+/// so that `dest/bin/cargo` and `dest/bin/rustc` exist.
+pub fn install_channel(
+    doc: &DocumentMut,
+    dest: &Path,
+    components: &[String],
+    targets: &[String],
+) -> Result<()> {
+    let triple = target_triple()?;
+    let mut packages: Vec<(String, String)> = COMPONENTS
+        .iter()
+        .map(|c| (c.to_string(), triple.to_string()))
+        .collect();
+    for name in components {
+        let package = component_package(doc, name)?;
+        if packages.iter().any(|(p, _)| p == &package) {
+            continue;
+        }
+        let key = component_target_key(doc, &package, triple).to_string();
+        packages.push((package, key));
+    }
+    for target in targets {
+        if target == triple {
+            continue;
+        }
+        packages.push(("rust-std".to_string(), target.clone()));
+    }
+    install_packages(doc, dest, &packages)
 }
 
 /// The directory containing executables inside an installed toolchain.

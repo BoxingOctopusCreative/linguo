@@ -119,6 +119,17 @@ linguo tf use opentofu@1.12       # writes terraform = "opentofu@1.12"
 linguo tf run -- tofu plan
 ```
 
+Rust additionally understands rustup-style channels, components, and targets;
+a project's `rust-toolchain.toml` `components`/`targets` arrays are honored
+automatically at install time:
+
+```sh
+linguo rust install nightly            # today's; nightly-2026-07-01 for a date
+linguo rust use nightly                # activates the newest installed nightly
+linguo rust component add rust-analyzer rust-src
+linguo rust target add wasm32-unknown-unknown
+```
+
 ### Version pins
 
 Pins live in `linguo.toml`, resolved from the nearest one up the directory
@@ -133,22 +144,23 @@ terraform = "opentofu@1.12"
 ```
 
 Requests can be a major (`24`), minor (`3.12`), or exact (`1.96.1`) version;
-the highest installed match wins.
+the highest installed match wins. Rust pins may also be channels: `stable`,
+`nightly`, `beta`, or dated builds like `nightly-2026-07-01`. Bare channel
+pins resolve to the newest *installed* build of that kind, so activation
+stays offline and deterministic; `linguo rust upgrade` is what moves them
+forward.
 
 Existing projects work without a `linguo.toml`: when none covers a language,
 linguo honors the ecosystem's own pin file (`.python-version`, `.nvmrc` /
 `.node-version`, `.ruby-version`, go.mod's `toolchain`/`go` directives, and
-`rust-toolchain(.toml)`), as long as it holds a plain version (aliases like
-`lts/*` or `stable` are ignored). Precedence: project `linguo.toml`, then the
+`rust-toolchain(.toml)`), as long as it holds a plain version (or, for
+rust, a channel; node aliases like `lts/*` are still ignored). Precedence: project `linguo.toml`, then the
 ecosystem pin file, then the global config.
 
 ## Road to 1.0
 
 Roughly in order:
 
-- **Rust channels and components**: nightly/beta toolchains, extra
-  components (`rust-analyzer`, `rust-src`), and cross-compilation targets
-  from the same dist manifests.
 - **Ruby on more platforms**: musl Linux builds (already published by
   rv-ruby), and a Windows story (RubyInstaller-based).
 - **Windows arm64 binaries**: the backends already map the targets; needs a
