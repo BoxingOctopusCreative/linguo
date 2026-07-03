@@ -63,6 +63,10 @@ jobs:
   build:
     needs: tag
     strategy:
+      # Each lane already runs as its own parallel job; don't let one broken
+      # lane cancel the others mid-build (failed lanes can be re-run alone,
+      # since the tag exists by this point).
+      fail-fast: false
       matrix:
         include:
           - target: aarch64-apple-darwin
