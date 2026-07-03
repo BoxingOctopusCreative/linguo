@@ -30,8 +30,9 @@ fully static musl), and Windows (x64) are on the
 [releases page](https://github.com/BoxingOctopusCreative/linguo/releases).
 On musl systems (Alpine and friends), Python, Ruby, Rust, and
 Terraform/OpenTofu work natively; Node.js and Go publish no official musl
-builds, so linguo points you at the distro package instead. Ruby is not yet
-available on Windows (no upstream relocatable builds).
+builds, so linguo points you at the distro package instead. On Windows, Ruby
+comes from RubyInstaller archives (without the MSYS2 devkit, so gems with C
+extensions need a separate toolchain).
 
 ## Install
 
@@ -165,7 +166,6 @@ ecosystem pin file, then the global config.
 
 Roughly in order:
 
-- **Ruby on Windows** (RubyInstaller-based).
 - **Workspace/monorepo ergonomics**: one `linguo sync` for a repo pinning
   several languages at once.
 

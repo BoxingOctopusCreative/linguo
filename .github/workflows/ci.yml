@@ -117,6 +117,14 @@ jobs:
           linguo tf run -- terraform version
           linguo tf which
 
+          linguo ruby install 3.4
+          mkdir "$RUNNER_TEMP/rb-demo" && cd "$RUNNER_TEMP/rb-demo"
+          linguo ruby use 3.4
+          linguo ruby run -- ruby -e "puts 'ruby on windows ok'"
+          linguo ruby init
+          linguo ruby add rake
+          linguo ruby which rake
+
           linguo rust install 1.96
           mkdir "$RUNNER_TEMP/rust-demo" && cd "$RUNNER_TEMP/rust-demo"
           linguo rust init demo

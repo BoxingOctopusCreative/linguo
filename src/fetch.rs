@@ -79,6 +79,9 @@ fn unpack(archive: &[u8], name: &str, dir: &Path) -> Result<()> {
             .context("failed to extract archive")
     } else if name.ends_with(".zip") {
         extract_zip(archive, dir)
+    } else if name.ends_with(".7z") {
+        sevenz_rust::decompress(std::io::Cursor::new(archive), dir)
+            .map_err(|e| anyhow::anyhow!("failed to extract 7z archive: {e}"))
     } else {
         bail!("unsupported archive format: {name}");
     }

@@ -42,7 +42,12 @@ fn prepended_path(dirs: &[PathBuf]) -> Result<std::ffi::OsString> {
 /// The pinned toolchain's `bundle`, with that toolchain's bin on PATH.
 fn bundle(root: &Path) -> Result<Command> {
     let bin = toolchain_bin(root)?;
-    let mut cmd = Command::new(bin.join("bundle"));
+    let bundle = if cfg!(windows) {
+        "bundle.bat"
+    } else {
+        "bundle"
+    };
+    let mut cmd = Command::new(bin.join(bundle));
     cmd.current_dir(root).env("PATH", prepended_path(&[bin])?);
     Ok(cmd)
 }
