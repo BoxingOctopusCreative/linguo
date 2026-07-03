@@ -1,0 +1,13 @@
+$ErrorActionPreference = 'Stop'
+
+$packageArgs = @{
+  packageName    = 'linguo'
+  fileType       = 'msi'
+  url64bit       = 'https://github.com/BoxingOctopusCreative/linguo/releases/download/v{{VERSION}}/linguo-v{{VERSION}}-x86_64-pc-windows-msvc.msi'
+  checksum64     = '{{CHECKSUM}}'
+  checksumType64 = 'sha256'
+  silentArgs     = '/quiet /norestart'
+  validExitCodes = @(0, 3010, 1641)
+}
+
+Install-ChocolateyPackage @packageArgs

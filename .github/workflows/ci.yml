@@ -187,3 +187,12 @@ jobs:
           cargo install cargo-wix --locked
           cargo wix --nocapture
           ls target/wix/*.msi
+      # Keeps the Chocolatey packaging honest: render and pack (no push).
+      - name: Chocolatey package builds
+        shell: bash
+        run: |
+          version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          ./packaging/chocolatey/generate.sh "$version" \
+            0000000000000000000000000000000000000000000000000000000000000000 choco-out
+          choco pack choco-out/linguo.nuspec --outputdirectory choco-out
+          ls choco-out/*.nupkg

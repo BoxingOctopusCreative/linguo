@@ -54,6 +54,7 @@ curl -fsSL https://raw.githubusercontent.com/BoxingOctopusCreative/linguo/main/i
 
 # native packages: deb, rpm, and a Windows MSI on the releases page;
 # Ubuntu users can also: sudo add-apt-repository ppa:boxingoctopuscreative/ppa
+# Windows users can also: choco install linguo
 
 # crates.io
 cargo install linguo

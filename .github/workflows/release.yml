@@ -203,6 +203,36 @@ jobs:
           fi
           ./packaging/ppa/build-source.sh "${{ needs.tag.outputs.version }}"             noble jammy resolute             --sign "$keyid" --upload ppa:boxingoctopuscreative/ppa
 
+  # Set a CHOCOLATEY_API_KEY secret (from community.chocolatey.org) and each
+  # release also publishes the MSI to Chocolatey; the job self-skips while
+  # the secret is absent. The nupkg's install script pulls the MSI from the
+  # GitHub release with its sha256, so this runs after the release exists.
+  publish-chocolatey:
+    needs: [tag, release]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.tag.outputs.version }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: linguo-x86_64-pc-windows-msvc
+          path: dist
+      - name: Pack and push
+        shell: bash
+        env:
+          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: |
+          if [ -z "$CHOCOLATEY_API_KEY" ]; then
+            echo "no CHOCOLATEY_API_KEY secret configured; skipping Chocolatey publish"
+            exit 0
+          fi
+          version="${{ needs.tag.outputs.version }}"
+          checksum=$(awk '{print $1}' "dist/linguo-v${version}-x86_64-pc-windows-msvc.msi.sha256")
+          ./packaging/chocolatey/generate.sh "$version" "$checksum" choco-out
+          choco pack choco-out/linguo.nuspec --outputdirectory choco-out
+          choco push "choco-out/linguo.${version}.nupkg"             --source https://push.chocolatey.org/ --api-key "$CHOCOLATEY_API_KEY"
+
   release:
     needs: [tag, build]
     runs-on: ubuntu-latest
