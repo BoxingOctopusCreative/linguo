@@ -40,18 +40,25 @@ extensions need a separate toolchain).
 
 ## Install
 
-Install via Homebrew, download a release binary (deb/rpm/MSI packages and
-tarballs are on the releases page), or build from source:
+Four ways in, pick one:
 
 ```sh
+# Homebrew (macOS/Linux)
 brew tap boxingoctopuscreative/tap && brew install linguo
+
+# curl install script (macOS/Linux, glibc or musl)
 curl -fsSL https://raw.githubusercontent.com/BoxingOctopusCreative/linguo/main/install.sh | sh
-cargo install --path .           # from a checkout
+
+# native packages: deb, rpm, and a Windows MSI on the releases page
+
+# from source
+cargo install --path .
 ```
 
-The install script puts the latest release binary in `~/.local/bin`
-(override with `LINGUO_INSTALL_DIR`; pin a version with `LINGUO_VERSION`)
-after verifying its checksum.
+The curl script detects your platform, downloads the latest release tarball,
+verifies its checksum, and installs the binary to `~/.local/bin`. Override
+the destination with `LINGUO_INSTALL_DIR`, or pin a version with
+`LINGUO_VERSION=0.9.0` (or `sh install.sh 0.9.0`).
 
 In CI or anywhere GitHub API rate limits bite, set `GITHUB_TOKEN` (or
 `LINGUO_GITHUB_TOKEN`): linguo and the install script authenticate their
