@@ -144,6 +144,27 @@ jobs:
             linguo-v*.rpm*
             linguo-v*.msi*
 
+  publish-crates:
+    needs: [tag, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.tag.outputs.version }}
+      - uses: dtolnay/rust-toolchain@stable
+      # Set a CARGO_REGISTRY_TOKEN repo secret (a crates.io API token with
+      # publish scope) and each release also publishes to crates.io; the
+      # job self-skips while the secret is absent.
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then
+            echo "no CARGO_REGISTRY_TOKEN secret configured; skipping crates.io publish"
+            exit 0
+          fi
+          cargo publish
+
   release:
     needs: [tag, build]
     runs-on: ubuntu-latest
@@ -188,19 +209,6 @@ jobs:
           version="${{ needs.tag.outputs.version }}"
           ./packaging/homebrew/generate.sh "$version" dist > linguo.rb
           gh release upload "v${version}" linguo.rb
-      # Set a CARGO_REGISTRY_TOKEN repo secret (a crates.io API token with
-      # publish scope) and each release also publishes to crates.io; the
-      # step self-skips while the secret is absent.
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Publish to crates.io
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then
-            echo "no CARGO_REGISTRY_TOKEN secret configured; skipping crates.io publish"
-            exit 0
-          fi
-          cargo publish
       # The HOMEBREW_TAP_DEPLOY_KEY secret holds an SSH deploy key with write
       # access to BoxingOctopusCreative/homebrew-tap; the step self-skips if
       # the secret is absent.
