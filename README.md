@@ -36,8 +36,13 @@ tarballs are on the releases page), or build from source:
 
 ```sh
 brew tap boxingoctopuscreative/tap && brew install linguo
+curl -fsSL https://raw.githubusercontent.com/BoxingOctopusCreative/linguo/main/install.sh | sh
 cargo install --path .           # from a checkout
 ```
+
+The install script puts the latest release binary in `~/.local/bin`
+(override with `LINGUO_INSTALL_DIR`; pin a version with `LINGUO_VERSION`)
+after verifying its checksum.
 
 The tap's formula is updated automatically by the release pipeline (each
 release also attaches the generated `linguo.rb`, kept at
@@ -148,9 +153,6 @@ Roughly in order:
   rv-ruby), and a Windows story (RubyInstaller-based).
 - **Windows arm64 binaries**: the backends already map the targets; needs a
   release lane and CI coverage.
-- **A curl-able install script** for platforms not covered by the
-  deb/rpm/MSI packages or the Homebrew formula; updating linguo itself
-  stays the package manager's job.
 - **Workspace/monorepo ergonomics**: one `linguo sync` for a repo pinning
   several languages at once.
 

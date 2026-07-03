@@ -27,6 +27,11 @@ jobs:
           cargo deb --no-build
           cargo generate-rpm
           ls target/debian/*.deb target/generate-rpm/*.rpm
+      # Exercises the curl installer's Linux path against the latest release.
+      - name: Install script smoke test
+        run: |
+          LINGUO_INSTALL_DIR="$RUNNER_TEMP/install-sh-bin" sh install.sh
+          "$RUNNER_TEMP/install-sh-bin/linguo" --version
 
   test-windows:
     runs-on: windows-latest
