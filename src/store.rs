@@ -7,7 +7,7 @@ use anyhow::{Context, Result, bail};
 
 use crate::config::{self, Pin, PinSource};
 use crate::versions::{Version, VersionReq};
-use crate::{go, node, python, ruby, rust, zig};
+use crate::{go, node, php, python, ruby, rust, zig};
 
 pub fn toolchain_path(language: &str, version: &Version) -> Result<PathBuf> {
     Ok(config::toolchains_dir(language)?.join(version.to_string()))
@@ -56,6 +56,7 @@ fn fallback_pin(language: &str, cwd: &Path) -> Result<Option<Pin>> {
         go::LANGUAGE => go::fallback_pin(cwd),
         rust::LANGUAGE => rust::fallback_pin(cwd),
         zig::LANGUAGE => zig::fallback_pin(cwd),
+        php::LANGUAGE => php::fallback_pin(cwd),
         _ => Ok(None),
     }
 }

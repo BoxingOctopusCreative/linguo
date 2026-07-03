@@ -76,6 +76,12 @@ jobs:
               linguo zig use 0.16
               linguo zig run -- zig version
 
+              linguo php install 8.5
+              mkdir /tmp/ph && cd /tmp/ph
+              linguo php init
+              linguo php run -- php -r "echo \"php on musl ok\n\";"
+              linguo php run -- composer --version
+
               # node and go have no official musl builds: expect honest errors
               linguo node install 2>/dev/null && exit 1 || echo "node bails as expected"
               linguo go install 2>/dev/null && exit 1 || echo "go bails as expected"
@@ -135,6 +141,13 @@ jobs:
           linguo ruby init
           linguo ruby add rake
           linguo ruby which rake
+
+          linguo php install 8.5
+          mkdir "$RUNNER_TEMP/php-demo" && cd "$RUNNER_TEMP/php-demo"
+          linguo php init
+          linguo php run -- php -r "echo 'php on windows ok';"
+          linguo php run -- composer --version
+          linguo php which
 
           linguo zig install 0.16
           mkdir "$RUNNER_TEMP/zig-demo" && cd "$RUNNER_TEMP/zig-demo"

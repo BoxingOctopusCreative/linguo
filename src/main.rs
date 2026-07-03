@@ -3,6 +3,7 @@ mod exec;
 mod fetch;
 mod go;
 mod node;
+mod php;
 mod python;
 mod ruby;
 mod rust;
@@ -55,6 +56,11 @@ enum Command {
     Rust {
         #[command(subcommand)]
         command: RustCommand,
+    },
+    /// Manage PHP toolchains and projects
+    Php {
+        #[command(subcommand)]
+        command: PhpCommand,
     },
     /// Manage Zig toolchains and projects
     Zig {
@@ -340,6 +346,51 @@ enum RustTargetCommand {
 }
 
 #[derive(Subcommand)]
+enum PhpCommand {
+    /// Download and install a toolchain (latest stable if no version is given)
+    Install { version: Option<String> },
+    /// Remove an installed toolchain
+    Uninstall { version: String },
+    /// List installed toolchains
+    List {
+        /// List versions available for download instead
+        #[arg(long)]
+        available: bool,
+    },
+    /// Pin a version for this directory (or globally)
+    Use {
+        version: String,
+        #[arg(long)]
+        global: bool,
+    },
+    /// Upgrade the pinned toolchain: newest release within the pin, or bump
+    /// the pin itself with --latest
+    Upgrade {
+        /// Bump the pin to the newest stable release (same granularity)
+        #[arg(long)]
+        latest: bool,
+        /// Uninstall older toolchains the pin previously matched
+        #[arg(long)]
+        prune: bool,
+    },
+    /// Create a new project: composer.json and version pin
+    Init,
+    /// composer require packages into the project
+    Add { packages: Vec<String> },
+    /// composer remove packages from the project
+    Remove { packages: Vec<String> },
+    /// Install everything composer.json declares
+    Sync,
+    /// Show which executable a command resolves to (default: php)
+    Which { command: Option<String> },
+    /// Run a command with vendor/bin and the toolchain on PATH
+    Run {
+        #[arg(trailing_var_arg = true, required = true)]
+        args: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
 enum ZigCommand {
     /// Download and install a toolchain (latest stable if no version is given)
     Install { version: Option<String> },
@@ -425,13 +476,14 @@ fn upgrade_all(latest: bool, prune: bool) -> anyhow::Result<()> {
     let mut failures: Vec<String> = Vec::new();
     let mut any = false;
     type UpgradeFn = fn(bool, bool) -> anyhow::Result<()>;
-    let languages: [(&str, UpgradeFn); 6] = [
+    let languages: [(&str, UpgradeFn); 7] = [
         (python::LANGUAGE, python::upgrade),
         (node::LANGUAGE, node::upgrade),
         (ruby::LANGUAGE, ruby::upgrade),
         (go::LANGUAGE, go::upgrade),
         (rust::LANGUAGE, rust::upgrade),
         (zig::LANGUAGE, zig::upgrade),
+        (php::LANGUAGE, php::upgrade),
     ];
     for (language, upgrade) in languages {
         if store::resolve_pin(language, &cwd)?.is_none() {
@@ -542,6 +594,21 @@ fn main() -> anyhow::Result<()> {
             RustCommand::Target { command } => match command {
                 RustTargetCommand::Add { triples } => rust::target_add(&triples),
             },
+        },
+        Command::Php { command } => match command {
+            PhpCommand::Install { version } => php::install(version),
+            PhpCommand::Uninstall { version } => store::uninstall(php::LANGUAGE, &version),
+            PhpCommand::List { available } => php::list(available),
+            PhpCommand::Use { version, global } => {
+                store::use_version(php::LANGUAGE, &version, global)
+            }
+            PhpCommand::Upgrade { latest, prune } => php::upgrade(latest, prune),
+            PhpCommand::Init => php::project::init(),
+            PhpCommand::Add { packages } => php::project::add(&packages),
+            PhpCommand::Remove { packages } => php::project::remove(&packages),
+            PhpCommand::Sync => php::project::sync(),
+            PhpCommand::Which { command } => php::project::which(command),
+            PhpCommand::Run { args } => php::project::run(&args),
         },
         Command::Zig { command } => match command {
             ZigCommand::Install { version } => zig::install(version),

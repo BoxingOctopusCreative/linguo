@@ -7,7 +7,7 @@
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue)](LICENSE)
 
 Linguo is a cross-platform, multi-language runtime, package, and project manager: think
-[`uv`](https://github.com/astral-sh/uv), but for **Python, Node.js, Ruby, Rust, Go, Zig, and Terraform/OpenTofu**.
+[`uv`](https://github.com/astral-sh/uv), but for **Python, Node.js, Ruby, PHP, Rust, Go, Zig, and Terraform/OpenTofu**.
 
 One binary manages runtime versions, per-project pins, and project workflows
 for every language, with the same command shape everywhere:
@@ -24,6 +24,7 @@ linguo <language> <command>
 | Rust | [static.rust-lang.org](https://static.rust-lang.org) dist channels | Cargo.toml via cargo |
 | Go | [go.dev/dl](https://go.dev/dl) | go.mod via the go tool |
 | Zig | [ziglang.org](https://ziglang.org/download) (static, musl-friendly) | build.zig.zon via the zig tool |
+| PHP | [static-php-cli](https://dl.static-php.dev) builds (static); [windows.php.net](https://windows.php.net) on Windows | composer.json via bundled Composer |
 | Terraform / OpenTofu | [releases.hashicorp.com](https://releases.hashicorp.com) / [get.opentofu.org](https://get.opentofu.org) | runtime-only (providers stay terraform's job) |
 
 Every download is sha256-verified against its upstream's published checksums.
@@ -125,6 +126,7 @@ linguo python init                # pyproject.toml + linguo.toml pin + .venv
 linguo python add "requests>=2.31"
 linguo node add typescript && linguo node run -- tsc --version
 linguo ruby add rails
+linguo php add monolog/monolog    # composer, bundled with every php toolchain
 linguo rust add serde && linguo rust run -- cargo build
 linguo go add rsc.io/quote
 linguo <lang> remove <pkg>
@@ -189,8 +191,8 @@ forward.
 Existing projects work without a `linguo.toml`: when none covers a language,
 linguo honors the ecosystem's own pin file (`.python-version`, `.nvmrc` /
 `.node-version`, `.ruby-version`, go.mod's `toolchain`/`go` directives,
-`rust-toolchain(.toml)`, `.zigversion`, and build.zig.zon's
-`minimum_zig_version`), as long as it holds a plain version (or, for
+`rust-toolchain(.toml)`, `.zigversion`, build.zig.zon's
+`minimum_zig_version`, and `.php-version`), as long as it holds a plain version (or, for
 rust, a channel; node aliases like `lts/*` are still ignored). Precedence:
 project `linguo.toml`, then the ecosystem pin file, then the global config.
 
@@ -198,9 +200,8 @@ project `linguo.toml`, then the ecosystem pin file, then the global config.
 
 Next up, in release order:
 
-- **1.2.0 Java and JDK-based languages**: JDK management plus Kotlin,
+- **1.3.0 Java and JDK-based languages**: JDK management plus Kotlin,
   Groovy, and Scala.
-- **1.3.0 PHP**.
 
 Then, under consideration:
 
