@@ -15,6 +15,11 @@ fn platform() -> Result<(&'static str, &'static str)> {
     let pair = match (std::env::consts::OS, std::env::consts::ARCH) {
         ("macos", "aarch64") => ("darwin", "arm64"),
         ("macos", "x86_64") => ("darwin", "amd64"),
+        ("linux", _) if cfg!(target_env = "musl") => {
+            bail!(
+                "official Go builds require glibc on Linux; on musl systems use the distro package (e.g. apk add go)"
+            )
+        }
         ("linux", "aarch64") => ("linux", "arm64"),
         ("linux", "x86_64") => ("linux", "amd64"),
         ("windows", "x86_64") => ("windows", "amd64"),
