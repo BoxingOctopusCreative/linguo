@@ -44,8 +44,8 @@ struct Release {
 
 /// Recent stable Rust versions (the releases GitHub knows about), ascending.
 pub fn fetch_available() -> Result<Vec<Version>> {
-    let releases: Vec<Release> = fetch::client()?
-        .get(RELEASES_URL)
+    let http = fetch::client()?;
+    let releases: Vec<Release> = fetch::github_api_get(&http, RELEASES_URL)
         .send()
         .context("failed to query rust-lang/rust releases")?
         .error_for_status()

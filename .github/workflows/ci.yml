@@ -29,6 +29,8 @@ jobs:
           ls target/debian/*.deb target/generate-rpm/*.rpm
       # Exercises the curl installer's Linux path against the latest release.
       - name: Install script smoke test
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           LINGUO_INSTALL_DIR="$RUNNER_TEMP/install-sh-bin" sh install.sh
           "$RUNNER_TEMP/install-sh-bin/linguo" --version
@@ -47,8 +49,10 @@ jobs:
       - run: cargo build --release --target x86_64-unknown-linux-musl
       # The real thing: the static binary inside a vanilla Alpine container.
       - name: Alpine smoke test
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          docker run --rm \
+          docker run --rm -e GITHUB_TOKEN \
             -v "$PWD/target/x86_64-unknown-linux-musl/release/linguo:/usr/local/bin/linguo:ro" \
             alpine:latest sh -ec '
               export LINGUO_ROOT=/tmp/linguo-root
@@ -86,6 +90,8 @@ jobs:
       # install, project init, and running a command through the toolchain.
       - name: Smoke test (python, node, go, terraform)
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           export LINGUO_ROOT="$RUNNER_TEMP/linguo-root"

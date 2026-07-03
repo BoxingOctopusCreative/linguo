@@ -61,8 +61,8 @@ fn parse_asset_version(name: &str, triple: &str) -> Option<Version> {
 /// have an `install_only` build for the current platform.
 pub fn fetch_available() -> Result<Vec<AvailableBuild>> {
     let triple = target_triple()?;
-    let release: Release = fetch::client()?
-        .get(RELEASE_URL)
+    let http = fetch::client()?;
+    let release: Release = fetch::github_api_get(&http, RELEASE_URL)
         .send()
         .context("failed to query python-build-standalone releases")?
         .error_for_status()

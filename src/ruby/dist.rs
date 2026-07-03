@@ -75,8 +75,8 @@ pub fn fetch_available() -> Result<Vec<AvailableBuild>> {
         return fetch_rubyinstaller();
     }
     let platform = platform()?;
-    let release: Release = fetch::client()?
-        .get(RELEASE_URL)
+    let http = fetch::client()?;
+    let release: Release = fetch::github_api_get(&http, RELEASE_URL)
         .send()
         .context("failed to query rv-ruby releases")?
         .error_for_status()
@@ -119,8 +119,8 @@ fn fetch_rubyinstaller() -> Result<Vec<AvailableBuild>> {
         "aarch64" => "arm",
         other => bail!("unsupported Windows architecture for ruby: {other}"),
     };
-    let releases: Vec<Release> = fetch::client()?
-        .get(RUBYINSTALLER_URL)
+    let http = fetch::client()?;
+    let releases: Vec<Release> = fetch::github_api_get(&http, RUBYINSTALLER_URL)
         .send()
         .context("failed to query RubyInstaller releases")?
         .error_for_status()
