@@ -48,7 +48,9 @@ case "$os" in
 esac
 
 if [ -z "$VERSION" ]; then
-    VERSION=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" |
+    auth=""
+    [ -n "${GITHUB_TOKEN:-}" ] && auth="Authorization: Bearer ${GITHUB_TOKEN}"
+    VERSION=$(curl -fsSL ${auth:+-H "$auth"} "https://api.github.com/repos/${REPO}/releases/latest" |
         sed -n 's/.*"tag_name": *"\(v[^"]*\)".*/\1/p' | head -n 1)
     [ -n "$VERSION" ] || err "could not determine the latest release"
 fi

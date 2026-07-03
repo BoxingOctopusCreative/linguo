@@ -17,6 +17,25 @@ pub fn client() -> Result<reqwest::blocking::Client> {
         .context("failed to build HTTP client")
 }
 
+/// A GET request for a GitHub API url, authenticated with
+/// LINGUO_GITHUB_TOKEN or GITHUB_TOKEN when present. CI runners share
+/// rate-limited IPs, so unauthenticated api.github.com calls 403 routinely.
+/// The token is only ever attached to api.github.com requests.
+pub fn github_api_get(
+    http: &reqwest::blocking::Client,
+    url: &str,
+) -> reqwest::blocking::RequestBuilder {
+    let mut request = http.get(url);
+    if url.starts_with("https://api.github.com/")
+        && let Ok(token) =
+            std::env::var("LINGUO_GITHUB_TOKEN").or_else(|_| std::env::var("GITHUB_TOKEN"))
+        && !token.is_empty()
+    {
+        request = request.bearer_auth(token);
+    }
+    request
+}
+
 /// Download `url` into memory, showing a progress bar on stderr (hidden when
 /// stderr is not a terminal).
 pub fn download(http: &reqwest::blocking::Client, url: &str) -> Result<Vec<u8>> {
@@ -79,6 +98,9 @@ fn unpack(archive: &[u8], name: &str, dir: &Path) -> Result<()> {
             .context("failed to extract archive")
     } else if name.ends_with(".zip") {
         extract_zip(archive, dir)
+    } else if name.ends_with(".7z") {
+        sevenz_rust::decompress(std::io::Cursor::new(archive), dir)
+            .map_err(|e| anyhow::anyhow!("failed to extract 7z archive: {e}"))
     } else {
         bail!("unsupported archive format: {name}");
     }
