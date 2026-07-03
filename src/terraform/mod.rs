@@ -2,7 +2,6 @@ pub mod dist;
 
 use std::fmt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::str::FromStr;
 
 use anyhow::{Context, Result, bail};
@@ -431,10 +430,11 @@ pub fn run(args: &[String]) -> Result<()> {
     let (_, bin) = toolchain_bin(&cwd)?;
 
     let current = std::env::var_os("PATH").unwrap_or_default();
-    let path = std::env::join_paths(std::iter::once(bin).chain(std::env::split_paths(&current)))
-        .context("invalid PATH entry")?;
+    let path =
+        std::env::join_paths(std::iter::once(bin.clone()).chain(std::env::split_paths(&current)))
+            .context("invalid PATH entry")?;
 
-    let mut cmd = Command::new(program);
+    let mut cmd = crate::exec::command_in(std::slice::from_ref(&bin), program);
     cmd.args(rest).env("PATH", path);
     crate::exec::exec(cmd, program)
 }

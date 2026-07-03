@@ -32,6 +32,19 @@ pub fn find_in_dir(dir: &Path, name: &str) -> Option<PathBuf> {
     None
 }
 
+/// A Command for `program`, resolved against linguo-managed dirs first with
+/// Windows executable extensions handled (.bat/.cmd tools like composer or
+/// gem binstubs are invisible to CreateProcess's PATH search, which only
+/// appends .exe). Unresolved names fall back to normal PATH search.
+pub fn command_in(dirs: &[PathBuf], program: &str) -> Command {
+    for dir in dirs {
+        if let Some(path) = find_in_dir(dir, program) {
+            return Command::new(path);
+        }
+    }
+    Command::new(program)
+}
+
 pub fn is_executable(path: &Path) -> bool {
     #[cfg(unix)]
     {

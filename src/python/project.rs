@@ -304,13 +304,17 @@ pub fn which(command: Option<String>) -> Result<()> {
 pub fn run(args: &[String]) -> Result<()> {
     let (program, rest) = args.split_first().context("no command given")?;
     let cwd = std::env::current_dir()?;
-    let (mut path_dirs, venv) = managed_bin_dirs(&cwd)?;
+    let (path_dirs, venv) = managed_bin_dirs(&cwd)?;
 
     let current_path = std::env::var_os("PATH").unwrap_or_default();
-    path_dirs.extend(std::env::split_paths(&current_path));
-    let new_path = std::env::join_paths(path_dirs).context("invalid PATH entry")?;
+    let all_dirs: Vec<std::path::PathBuf> = path_dirs
+        .iter()
+        .cloned()
+        .chain(std::env::split_paths(&current_path))
+        .collect();
+    let new_path = std::env::join_paths(&all_dirs).context("invalid PATH entry")?;
 
-    let mut cmd = Command::new(program);
+    let mut cmd = exec::command_in(&path_dirs, program);
     cmd.args(rest).env("PATH", new_path);
     if let Some(venv) = venv {
         cmd.env("VIRTUAL_ENV", venv);

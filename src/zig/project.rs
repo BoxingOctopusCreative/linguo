@@ -117,7 +117,7 @@ pub fn run(args: &[String]) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let bin = toolchain_bin(&cwd)?;
 
-    let mut cmd = Command::new(program);
+    let mut cmd = crate::exec::command_in(std::slice::from_ref(&bin), program);
     cmd.args(rest).env("PATH", prepended_path(&[bin])?);
     crate::exec::exec(cmd, program)
 }

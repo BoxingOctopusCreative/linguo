@@ -145,7 +145,7 @@ pub fn run(args: &[String]) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let dirs = managed_bin_dirs(&cwd)?;
 
-    let mut cmd = Command::new(program);
+    let mut cmd = crate::exec::command_in(&dirs, program);
     cmd.args(rest).env("PATH", prepended_path(&dirs)?);
     crate::exec::exec(cmd, program)
 }
