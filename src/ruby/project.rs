@@ -102,8 +102,12 @@ pub fn remove(gems: &[String]) -> Result<()> {
 }
 
 pub fn sync() -> Result<()> {
-    let root = project_root()?;
-    run_checked(bundle(&root)?.arg("install"), "bundle install")
+    sync_in(&project_root()?)
+}
+
+/// Sync a specific project directory (used by workspace sync).
+pub fn sync_in(root: &Path) -> Result<()> {
+    run_checked(bundle(root)?.arg("install"), "bundle install")
 }
 
 /// Print the path of the executable a command resolves to (default: ruby).

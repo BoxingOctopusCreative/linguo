@@ -11,6 +11,7 @@ mod status;
 mod store;
 mod terraform;
 mod versions;
+mod workspace;
 
 use clap::{Parser, Subcommand};
 
@@ -63,6 +64,9 @@ enum Command {
     /// Overview of all languages: installed toolchains and active pins
     #[command(alias = "list")]
     Status,
+    /// Sync every workspace member: install missing pinned toolchains, then
+    /// run each member project's dependency sync
+    Sync,
     /// Upgrade every language pinned in this directory
     Upgrade {
         /// Bump each pin to the newest stable release (same granularity)
@@ -498,6 +502,7 @@ fn main() -> anyhow::Result<()> {
             TerraformCommand::Which { command } => terraform::which(command),
             TerraformCommand::Run { args } => terraform::run(&args),
         },
+        Command::Sync => workspace::sync(),
         Command::Status => status::status(),
         Command::Upgrade { latest, prune } => upgrade_all(latest, prune),
         Command::Activate { shell } => {

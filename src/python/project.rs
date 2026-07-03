@@ -244,7 +244,12 @@ pub fn remove(names: &[String]) -> Result<()> {
 }
 
 pub fn sync() -> Result<()> {
-    let root = project_root()?;
+    sync_in(&project_root()?)
+}
+
+/// Sync a specific project directory (used by workspace sync).
+pub fn sync_in(root: &Path) -> Result<()> {
+    let root = root.to_path_buf();
     ensure_venv(&root)?;
     let deps = read_dependencies(&std::fs::read_to_string(root.join(PYPROJECT))?)?;
     if deps.is_empty() {

@@ -136,8 +136,12 @@ pub fn remove(names: &[String]) -> Result<()> {
 }
 
 pub fn sync() -> Result<()> {
-    let root = project_root()?;
-    run_checked(npm(&root)?.arg("install"), "npm install")
+    sync_in(&project_root()?)
+}
+
+/// Sync a specific project directory (used by workspace sync).
+pub fn sync_in(root: &Path) -> Result<()> {
+    run_checked(npm(root)?.arg("install"), "npm install")
 }
 
 /// Print the path of the executable a command resolves to (default: node).

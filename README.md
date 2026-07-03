@@ -115,6 +115,15 @@ linguo <lang> remove <pkg>
 linguo <lang> sync                # install everything the manifest declares
 ```
 
+Monorepos sync in one shot: `linguo sync` at the top level finds every member
+project (or honors `[workspace] members = ["services/*", "web"]` in the root
+linguo.toml, globs allowed), installs any missing pinned toolchains, and runs
+each member's dependency sync:
+
+```sh
+linguo sync                       # fresh clone -> every member runnable
+```
+
 Terraform and OpenTofu share one command (`linguo tf` works too); OpenTofu
 versions are spelled `opentofu@<version>` and resolve the `tofu` binary:
 
@@ -162,14 +171,7 @@ linguo honors the ecosystem's own pin file (`.python-version`, `.nvmrc` /
 rust, a channel; node aliases like `lts/*` are still ignored). Precedence: project `linguo.toml`, then the
 ecosystem pin file, then the global config.
 
-## Road to 1.0
-
-Roughly in order:
-
-- **Workspace/monorepo ergonomics**: one `linguo sync` for a repo pinning
-  several languages at once.
-
-## After 1.0
+## Roadmap
 
 - **Windows arm64 binaries**: the backends already map the targets; needs a
   release lane and CI coverage.

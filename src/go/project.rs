@@ -121,8 +121,12 @@ pub fn remove(names: &[String]) -> Result<()> {
 }
 
 pub fn sync() -> Result<()> {
-    let root = project_root()?;
-    run_checked(go(&root)?.args(["mod", "download"]), "go mod download")
+    sync_in(&project_root()?)
+}
+
+/// Sync a specific project directory (used by workspace sync).
+pub fn sync_in(root: &Path) -> Result<()> {
+    run_checked(go(root)?.args(["mod", "download"]), "go mod download")
 }
 
 /// Print the path of the executable a command resolves to (default: go).
