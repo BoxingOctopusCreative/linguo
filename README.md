@@ -43,7 +43,7 @@ extensions need a separate toolchain).
 
 ## Install
 
-Five ways in, pick one:
+Pick your channel:
 
 ```sh
 # Homebrew (macOS/Linux)
@@ -52,12 +52,16 @@ brew tap boxingoctopuscreative/tap && brew install linguo
 # curl install script (macOS/Linux, glibc or musl)
 curl -fsSL https://raw.githubusercontent.com/BoxingOctopusCreative/linguo/main/install.sh | sh
 
-# native packages: deb, rpm, and a Windows MSI on the releases page;
-# Ubuntu users can also: sudo add-apt-repository ppa:boxingoctopuscreative/ppa
-# Windows users can also: choco install linguo
-
 # crates.io
 cargo install linguo
+
+# native packages: deb, rpm, and a Windows MSI on the releases page
+
+# Ubuntu PPA (rolling out; live once the first PPA build publishes)
+sudo add-apt-repository ppa:boxingoctopuscreative/ppa && sudo apt install linguo
+
+# Chocolatey (rolling out; live once the first submission clears moderation)
+choco install linguo
 
 # from a checkout
 cargo install --path .
@@ -66,15 +70,16 @@ cargo install --path .
 The curl script detects your platform, downloads the latest release tarball,
 verifies its checksum, and installs the binary to `~/.local/bin`. Override
 the destination with `LINGUO_INSTALL_DIR`, or pin a version with
-`LINGUO_VERSION=0.9.0` (or `sh install.sh 0.9.0`).
+`LINGUO_VERSION=1.2.0` (or `sh install.sh 1.2.0`).
 
 In CI or anywhere GitHub API rate limits bite, set `GITHUB_TOKEN` (or
 `LINGUO_GITHUB_TOKEN`): linguo and the install script authenticate their
 api.github.com queries with it, and never send it anywhere else.
 
-The tap's formula is updated automatically by the release pipeline (each
-release also attaches the generated `linguo.rb`, kept at
-[packaging/homebrew/linguo.rb](packaging/homebrew/linguo.rb)).
+Every channel is fed automatically by the release pipeline: the tap formula
+(also attached to each release as `linguo.rb`), crates.io, the PPA (source
+packages that Launchpad builds for noble and resolute), and the Chocolatey
+package (which installs the release MSI).
 
 Then add the shell hook to your rc file so pinned runtimes activate
 automatically when you `cd` into a project:
