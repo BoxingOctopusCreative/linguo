@@ -2,6 +2,10 @@
 
 ![Linguo Logo](https://assets.linguo.run/brand/linguo_wide.png)
 
+[![Release](https://img.shields.io/github/v/release/BoxingOctopusCreative/linguo)](https://github.com/BoxingOctopusCreative/linguo/releases)
+[![CI](https://github.com/BoxingOctopusCreative/linguo/actions/workflows/ci.yml/badge.svg)](https://github.com/BoxingOctopusCreative/linguo/actions/workflows/ci.yml)
+[![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue)](LICENSE)
+
 Linguo is a cross-platform, multi-language runtime, package, and project manager: think
 [`uv`](https://github.com/astral-sh/uv), but for **Python, Node.js, Ruby, Rust, Go, and Terraform/OpenTofu**.
 
@@ -16,7 +20,7 @@ linguo <language> <command>
 |---|---|---|
 | Python | [python-build-standalone](https://github.com/astral-sh/python-build-standalone) | pyproject.toml + pip-backed `.venv` |
 | Node.js | [nodejs.org/dist](https://nodejs.org/dist) | package.json via npm |
-| Ruby | [rv-ruby](https://github.com/spinel-coop/rv-ruby) relocatable builds | Gemfile via bundler (shared per-toolchain gems) |
+| Ruby | [rv-ruby](https://github.com/spinel-coop/rv-ruby) relocatable builds; [RubyInstaller](https://rubyinstaller.org) on Windows | Gemfile via bundler (shared per-toolchain gems) |
 | Rust | [static.rust-lang.org](https://static.rust-lang.org) dist channels | Cargo.toml via cargo |
 | Go | [go.dev/dl](https://go.dev/dl) | go.mod via the go tool |
 | Terraform / OpenTofu | [releases.hashicorp.com](https://releases.hashicorp.com) / [get.opentofu.org](https://get.opentofu.org) | runtime-only (providers stay terraform's job) |
@@ -48,6 +52,10 @@ cargo install --path .           # from a checkout
 The install script puts the latest release binary in `~/.local/bin`
 (override with `LINGUO_INSTALL_DIR`; pin a version with `LINGUO_VERSION`)
 after verifying its checksum.
+
+In CI or anywhere GitHub API rate limits bite, set `GITHUB_TOKEN` (or
+`LINGUO_GITHUB_TOKEN`): linguo and the install script authenticate their
+api.github.com queries with it, and never send it anywhere else.
 
 The tap's formula is updated automatically by the release pipeline (each
 release also attaches the generated `linguo.rb`, kept at
@@ -118,7 +126,8 @@ linguo <lang> sync                # install everything the manifest declares
 Monorepos sync in one shot: `linguo sync` at the top level finds every member
 project (or honors `[workspace] members = ["services/*", "web"]` in the root
 linguo.toml, globs allowed), installs any missing pinned toolchains, and runs
-each member's dependency sync:
+each member's dependency sync. Directories holding .tf files count as
+toolchain-only members:
 
 ```sh
 linguo sync                       # fresh clone -> every member runnable
@@ -168,8 +177,8 @@ Existing projects work without a `linguo.toml`: when none covers a language,
 linguo honors the ecosystem's own pin file (`.python-version`, `.nvmrc` /
 `.node-version`, `.ruby-version`, go.mod's `toolchain`/`go` directives, and
 `rust-toolchain(.toml)`), as long as it holds a plain version (or, for
-rust, a channel; node aliases like `lts/*` are still ignored). Precedence: project `linguo.toml`, then the
-ecosystem pin file, then the global config.
+rust, a channel; node aliases like `lts/*` are still ignored). Precedence:
+project `linguo.toml`, then the ecosystem pin file, then the global config.
 
 ## Roadmap
 
@@ -185,8 +194,11 @@ ecosystem pin file, then the global config.
 
 ## Contributing
 
-`cargo test` runs the unit suite; CI additionally runs an end-to-end smoke
-test (real toolchain installs and project flows) on Linux and Windows for
-every push. Releases are cut from the Actions tab via the Release workflow,
-which tags, builds all five platform binaries, and generates notes from
-commit messages.
+`cargo test` runs the unit suite; CI additionally runs end-to-end smoke
+tests (real toolchain installs and project flows) on Linux, on musl inside
+an Alpine container, and on Windows for every push, and builds the deb, rpm,
+and MSI packages so packaging can't rot between releases. Releases are cut
+from the Actions tab via the Release workflow, which bumps the version, tags,
+builds binaries for all seven platform lanes, packages deb/rpm/MSI, publishes
+with notes generated from commit messages, and pushes the regenerated
+Homebrew formula to the tap.
