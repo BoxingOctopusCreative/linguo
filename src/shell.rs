@@ -8,7 +8,7 @@ use anyhow::Result;
 use clap::ValueEnum;
 
 use crate::config::PinSource;
-use crate::{go, node, python, ruby, rust, terraform, zig};
+use crate::{go, node, php, python, ruby, rust, terraform, zig};
 
 /// Env var tracking which directories linguo has prepended to PATH, so they
 /// can be removed again when the active project changes.
@@ -104,6 +104,15 @@ fn desired_dirs() -> Result<Vec<PathBuf>> {
     }
     if let Some((_, version)) = auto(go::LANGUAGE, &|v| go::install(Some(v.into())))? {
         dirs.push(go::dist::bin_dir(&go::toolchain_path(&version)?));
+    }
+    if let Some((pin, version)) = auto(php::LANGUAGE, &|v| php::install(Some(v.into())))? {
+        if let PinSource::Project(pin_file) = &pin.source {
+            let vendor_bin = pin_file.parent().unwrap_or(&cwd).join("vendor").join("bin");
+            if vendor_bin.is_dir() {
+                dirs.push(vendor_bin);
+            }
+        }
+        dirs.push(php::dist::bin_dir(&php::toolchain_path(&version)?));
     }
     if let Some((_, version)) = auto(zig::LANGUAGE, &|v| zig::install(Some(v.into())))? {
         dirs.push(zig::dist::bin_dir(&zig::toolchain_path(&version)?));

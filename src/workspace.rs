@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 
-use crate::{go, node, python, ruby, rust, store, terraform, zig};
+use crate::{go, node, php, python, ruby, rust, store, terraform, zig};
 
 /// Project manifests that make a directory a workspace member, and the
 /// language each belongs to.
@@ -22,6 +22,7 @@ const MANIFESTS: &[(&str, &str)] = &[
     ("Cargo.toml", "rust"),
     ("go.mod", "go"),
     ("build.zig", "zig"),
+    ("composer.json", "php"),
 ];
 
 /// Directories never descended into during discovery.
@@ -178,6 +179,7 @@ fn ensure_toolchain(language: &str, dir: &Path) -> Result<bool> {
                         "ruby" => ruby::install(raw)?,
                         "go" => go::install(raw)?,
                         "zig" => zig::install(raw)?,
+                        "php" => php::install(raw)?,
                         other => bail!("no installer for {other}"),
                     }
                     Ok(true)
@@ -198,6 +200,7 @@ fn sync_language(language: &str, dir: &Path) -> Result<()> {
         "rust" => rust::project::sync_in(dir),
         "go" => go::project::sync_in(dir),
         "zig" => zig::project::sync_in(dir),
+        "php" => php::project::sync_in(dir),
         "terraform" => Ok(()),
         other => bail!("no sync for {other}"),
     }
