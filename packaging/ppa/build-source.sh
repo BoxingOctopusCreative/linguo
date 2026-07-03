@@ -75,9 +75,9 @@ linguo (${version}-1~ppa1~${series}1) ${series}; urgency=medium
 CHANGELOG
 
     if [ -n "$sign_key" ]; then
-        (cd "$build" && dpkg-buildpackage -S -sa "-k${sign_key}")
+        (cd "$build" && dpkg-buildpackage -S -sa -d "-k${sign_key}")
     else
-        (cd "$build" && dpkg-buildpackage -S -sa -us -uc)
+        (cd "$build" && dpkg-buildpackage -S -sa -d -us -uc)
     fi
     echo "built ${series}: $(ls "${work}/${series}"/*.changes)"
 
