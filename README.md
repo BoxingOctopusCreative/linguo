@@ -4,6 +4,7 @@
 
 [![Release](https://img.shields.io/github/v/release/BoxingOctopusCreative/linguo)](https://github.com/BoxingOctopusCreative/linguo/releases)
 [![CI](https://github.com/BoxingOctopusCreative/linguo/actions/workflows/ci.yml/badge.svg)](https://github.com/BoxingOctopusCreative/linguo/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/linguo)](https://crates.io/crates/linguo)
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue)](LICENSE)
 
 Linguo is a cross-platform, multi-language runtime, package, and project manager: think
@@ -53,7 +54,8 @@ curl -fsSL https://raw.githubusercontent.com/BoxingOctopusCreative/linguo/main/i
 
 # native packages: deb, rpm, and a Windows MSI on the releases page
 
-# from source
+# from crates.io, or from a checkout
+cargo install linguo
 cargo install --path .
 ```
 
