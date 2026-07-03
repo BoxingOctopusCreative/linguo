@@ -27,6 +27,13 @@ jobs:
           cargo deb --no-build
           cargo generate-rpm
           ls target/debian/*.deb target/generate-rpm/*.rpm
+      # Keeps the Launchpad PPA source packaging honest: assembles the
+      # vendored orig tarball and runs dpkg-buildpackage -S unsigned.
+      - name: PPA source package builds
+        run: |
+          sudo apt-get update && sudo apt-get install -y devscripts debhelper
+          version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          ./packaging/ppa/build-source.sh "$version" noble
       # Exercises the curl installer's Linux path against the latest release.
       - name: Install script smoke test
         env:

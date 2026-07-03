@@ -169,6 +169,40 @@ jobs:
           fi
           cargo publish
 
+  # Set PPA_GPG_KEY (armored private key registered with Launchpad) and
+  # optionally PPA_GPG_PASSPHRASE, and each release uploads source packages
+  # to ppa:boxingoctopuscreative/ppa for every supported series; the job
+  # self-skips while the secret is absent. Launchpad builds the binaries.
+  publish-ppa:
+    needs: tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.tag.outputs.version }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build and upload source packages
+        env:
+          PPA_GPG_KEY: ${{ secrets.PPA_GPG_KEY }}
+          PPA_GPG_PASSPHRASE: ${{ secrets.PPA_GPG_PASSPHRASE }}
+        run: |
+          if [ -z "$PPA_GPG_KEY" ]; then
+            echo "no PPA_GPG_KEY secret configured; skipping PPA upload"
+            exit 0
+          fi
+          sudo apt-get update && sudo apt-get install -y devscripts debhelper dput
+          printf '%s' "$PPA_GPG_KEY" | gpg --batch --import
+          keyid=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5; exit}')
+          if [ -n "$PPA_GPG_PASSPHRASE" ]; then
+            # Preset the passphrase so batch signing works.
+            printf 'allow-preset-passphrase
+' >> ~/.gnupg/gpg-agent.conf
+            gpg-connect-agent reloadagent /bye
+            keygrip=$(gpg --list-secret-keys --with-keygrip --with-colons | awk -F: '/^grp/ {print $10; exit}')
+            /usr/lib/gnupg/gpg-preset-passphrase --preset "$keygrip" <<< "$PPA_GPG_PASSPHRASE"
+          fi
+          ./packaging/ppa/build-source.sh "${{ needs.tag.outputs.version }}"             noble jammy resolute             --sign "$keyid" --upload ppa:boxingoctopuscreative/ppa
+
   release:
     needs: [tag, build]
     runs-on: ubuntu-latest

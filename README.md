@@ -52,7 +52,8 @@ brew tap boxingoctopuscreative/tap && brew install linguo
 # curl install script (macOS/Linux, glibc or musl)
 curl -fsSL https://raw.githubusercontent.com/BoxingOctopusCreative/linguo/main/install.sh | sh
 
-# native packages: deb, rpm, and a Windows MSI on the releases page
+# native packages: deb, rpm, and a Windows MSI on the releases page;
+# Ubuntu users can also: sudo add-apt-repository ppa:boxingoctopuscreative/ppa
 
 # crates.io
 cargo install linguo

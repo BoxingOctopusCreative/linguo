@@ -1,0 +1,16 @@
+Source: linguo
+Section: utils
+Priority: optional
+Maintainer: Ryan Draga <ryan.draga@boxingoctop.us>
+Build-Depends: debhelper-compat (= 13), cargo (>= 1.85) | cargo-1.85, rustc (>= 1.85) | rustc-1.85
+Standards-Version: 4.6.2
+Homepage: https://github.com/BoxingOctopusCreative/linguo
+Rules-Requires-Root: no
+
+Package: linguo
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Cross-platform, multi-language runtime, package, and project manager
+ linguo manages runtime versions, per-project pins, and project workflows
+ for Python, Node.js, Ruby, PHP, Rust, Go, Zig, and Terraform/OpenTofu
+ with one uv-style command surface.
