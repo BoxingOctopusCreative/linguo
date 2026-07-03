@@ -12,6 +12,7 @@ mod store;
 mod terraform;
 mod versions;
 mod workspace;
+mod zig;
 
 use clap::{Parser, Subcommand};
 
@@ -54,6 +55,11 @@ enum Command {
     Rust {
         #[command(subcommand)]
         command: RustCommand,
+    },
+    /// Manage Zig toolchains and projects
+    Zig {
+        #[command(subcommand)]
+        command: ZigCommand,
     },
     /// Manage Terraform toolchains
     #[command(alias = "tf")]
@@ -334,6 +340,49 @@ enum RustTargetCommand {
 }
 
 #[derive(Subcommand)]
+enum ZigCommand {
+    /// Download and install a toolchain (latest stable if no version is given)
+    Install { version: Option<String> },
+    /// Remove an installed toolchain
+    Uninstall { version: String },
+    /// List installed toolchains
+    List {
+        /// List versions available for download instead
+        #[arg(long)]
+        available: bool,
+    },
+    /// Pin a version for this directory (or globally)
+    Use {
+        version: String,
+        #[arg(long)]
+        global: bool,
+    },
+    /// Upgrade the pinned toolchain: newest release within the pin, or bump
+    /// the pin itself with --latest
+    Upgrade {
+        /// Bump the pin to the newest stable release (same granularity)
+        #[arg(long)]
+        latest: bool,
+        /// Uninstall older toolchains the pin previously matched
+        #[arg(long)]
+        prune: bool,
+    },
+    /// Create a new project: zig init and version pin
+    Init,
+    /// zig fetch --save packages (archive URLs or paths) into the project
+    Add { packages: Vec<String> },
+    /// Fetch everything build.zig.zon declares (zig build --fetch)
+    Sync,
+    /// Show which executable a command resolves to (default: zig)
+    Which { command: Option<String> },
+    /// Run a command with the pinned toolchain on PATH
+    Run {
+        #[arg(trailing_var_arg = true, required = true)]
+        args: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
 enum TerraformCommand {
     /// Download and install a toolchain (latest stable if no version is given)
     Install { version: Option<String> },
@@ -376,12 +425,13 @@ fn upgrade_all(latest: bool, prune: bool) -> anyhow::Result<()> {
     let mut failures: Vec<String> = Vec::new();
     let mut any = false;
     type UpgradeFn = fn(bool, bool) -> anyhow::Result<()>;
-    let languages: [(&str, UpgradeFn); 5] = [
+    let languages: [(&str, UpgradeFn); 6] = [
         (python::LANGUAGE, python::upgrade),
         (node::LANGUAGE, node::upgrade),
         (ruby::LANGUAGE, ruby::upgrade),
         (go::LANGUAGE, go::upgrade),
         (rust::LANGUAGE, rust::upgrade),
+        (zig::LANGUAGE, zig::upgrade),
     ];
     for (language, upgrade) in languages {
         if store::resolve_pin(language, &cwd)?.is_none() {
@@ -492,6 +542,20 @@ fn main() -> anyhow::Result<()> {
             RustCommand::Target { command } => match command {
                 RustTargetCommand::Add { triples } => rust::target_add(&triples),
             },
+        },
+        Command::Zig { command } => match command {
+            ZigCommand::Install { version } => zig::install(version),
+            ZigCommand::Uninstall { version } => store::uninstall(zig::LANGUAGE, &version),
+            ZigCommand::List { available } => zig::list(available),
+            ZigCommand::Use { version, global } => {
+                store::use_version(zig::LANGUAGE, &version, global)
+            }
+            ZigCommand::Upgrade { latest, prune } => zig::upgrade(latest, prune),
+            ZigCommand::Init => zig::project::init(),
+            ZigCommand::Add { packages } => zig::project::add(&packages),
+            ZigCommand::Sync => zig::project::sync(),
+            ZigCommand::Which { command } => zig::project::which(command),
+            ZigCommand::Run { args } => zig::project::run(&args),
         },
         Command::Terraform { command } => match command {
             TerraformCommand::Install { version } => terraform::install(version),

@@ -71,6 +71,11 @@ jobs:
               linguo tf use 1.13
               linguo tf run -- terraform version
 
+              linguo zig install 0.16
+              mkdir /tmp/zg && cd /tmp/zg
+              linguo zig use 0.16
+              linguo zig run -- zig version
+
               # node and go have no official musl builds: expect honest errors
               linguo node install 2>/dev/null && exit 1 || echo "node bails as expected"
               linguo go install 2>/dev/null && exit 1 || echo "go bails as expected"
@@ -130,6 +135,12 @@ jobs:
           linguo ruby init
           linguo ruby add rake
           linguo ruby which rake
+
+          linguo zig install 0.16
+          mkdir "$RUNNER_TEMP/zig-demo" && cd "$RUNNER_TEMP/zig-demo"
+          linguo zig use 0.16
+          linguo zig run -- zig version
+          linguo zig which
 
           linguo rust install 1.96
           mkdir "$RUNNER_TEMP/rust-demo" && cd "$RUNNER_TEMP/rust-demo"
