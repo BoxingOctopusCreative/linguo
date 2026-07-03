@@ -43,7 +43,7 @@ extensions need a separate toolchain).
 
 ## Install
 
-Four ways in, pick one:
+Five ways in, pick one:
 
 ```sh
 # Homebrew (macOS/Linux)
@@ -54,8 +54,10 @@ curl -fsSL https://raw.githubusercontent.com/BoxingOctopusCreative/linguo/main/i
 
 # native packages: deb, rpm, and a Windows MSI on the releases page
 
-# from crates.io, or from a checkout
+# crates.io
 cargo install linguo
+
+# from a checkout
 cargo install --path .
 ```
 
