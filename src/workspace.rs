@@ -254,6 +254,20 @@ mod tests {
         std::fs::write(path, "").unwrap();
     }
 
+    /// Separator-agnostic relative member names for assertions.
+    fn names(members: &[PathBuf], root: &Path) -> Vec<String> {
+        members
+            .iter()
+            .map(|m| {
+                m.strip_prefix(root)
+                    .unwrap()
+                    .display()
+                    .to_string()
+                    .replace('\\', "/")
+            })
+            .collect()
+    }
+
     #[test]
     fn discovery_finds_members_and_skips_vendor_dirs() {
         let tmp = tempfile::tempdir().unwrap();
@@ -267,11 +281,10 @@ mod tests {
 
         let mut members = Vec::new();
         discover(root, &mut members).unwrap();
-        let names: Vec<String> = members
-            .iter()
-            .map(|m| m.strip_prefix(root).unwrap().display().to_string())
-            .collect();
-        assert_eq!(names, vec!["api", "infra", "tools/cli", "web"]);
+        assert_eq!(
+            names(&members, root),
+            vec!["api", "infra", "tools/cli", "web"]
+        );
     }
 
     #[test]
@@ -292,11 +305,10 @@ mod tests {
         let nested = root.join("services/a");
         let (found_root, members) = resolve_members(&nested).unwrap();
         assert_eq!(found_root, root);
-        let names: Vec<String> = members
-            .iter()
-            .map(|m| m.strip_prefix(root).unwrap().display().to_string())
-            .collect();
-        assert_eq!(names, vec!["services/a", "services/b", "web"]);
+        assert_eq!(
+            names(&members, root),
+            vec!["services/a", "services/b", "web"]
+        );
     }
 
     #[test]
