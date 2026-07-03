@@ -15,6 +15,11 @@ fn platform() -> Result<(&'static str, &'static str)> {
     let pair = match (std::env::consts::OS, std::env::consts::ARCH) {
         ("macos", "aarch64") => ("osx-arm64-tar", "darwin-arm64"),
         ("macos", "x86_64") => ("osx-x64-tar", "darwin-x64"),
+        ("linux", _) if cfg!(target_env = "musl") => {
+            bail!(
+                "official Node.js builds require glibc; on musl systems use the distro package (e.g. apk add nodejs)"
+            )
+        }
         ("linux", "aarch64") => ("linux-arm64", "linux-arm64"),
         ("linux", "x86_64") => ("linux-x64", "linux-x64"),
         ("windows", "x86_64") => ("win-x64-zip", "win-x64"),

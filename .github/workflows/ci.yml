@@ -33,6 +33,47 @@ jobs:
           LINGUO_INSTALL_DIR="$RUNNER_TEMP/install-sh-bin" sh install.sh
           "$RUNNER_TEMP/install-sh-bin/linguo" --version
 
+  test-musl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+      # Static musl test binaries run fine on the glibc host.
+      - run: cargo test --target x86_64-unknown-linux-musl
+      - run: cargo build --release --target x86_64-unknown-linux-musl
+      # The real thing: the static binary inside a vanilla Alpine container.
+      - name: Alpine smoke test
+        run: |
+          docker run --rm \
+            -v "$PWD/target/x86_64-unknown-linux-musl/release/linguo:/usr/local/bin/linguo:ro" \
+            alpine:latest sh -ec '
+              export LINGUO_ROOT=/tmp/linguo-root
+              linguo python install 3.12
+              mkdir /tmp/py && cd /tmp/py
+              linguo python init demo
+              linguo python run -- python -c "print(\"python on musl ok\")"
+
+              linguo ruby install 3.4
+              mkdir /tmp/rb && cd /tmp/rb
+              linguo ruby use 3.4
+              linguo ruby run -- ruby -e "puts \"ruby on musl ok\""
+
+              linguo tf install 1.13
+              mkdir /tmp/tf && cd /tmp/tf
+              linguo tf use 1.13
+              linguo tf run -- terraform version
+
+              # node and go have no official musl builds: expect honest errors
+              linguo node install 2>/dev/null && exit 1 || echo "node bails as expected"
+              linguo go install 2>/dev/null && exit 1 || echo "go bails as expected"
+
+              linguo status
+            '
+
   test-windows:
     runs-on: windows-latest
     steps:

@@ -16,6 +16,8 @@ fn platform() -> Result<&'static str> {
     let tag = match (std::env::consts::OS, std::env::consts::ARCH) {
         ("macos", "aarch64") => "arm64_sonoma",
         ("macos", "x86_64") => "ventura",
+        ("linux", "aarch64") if cfg!(target_env = "musl") => "arm64_linux_musl",
+        ("linux", "x86_64") if cfg!(target_env = "musl") => "x86_64_linux_musl",
         ("linux", "aarch64") => "arm64_linux",
         ("linux", "x86_64") => "x86_64_linux",
         (os, arch) => bail!("unsupported platform for ruby: {os}/{arch}"),

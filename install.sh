@@ -32,12 +32,13 @@ case "$os" in
         esac
         ;;
     Linux)
+        libc="gnu"
         if ldd --version 2>&1 | grep -qi musl; then
-            err "musl-based Linux is not supported yet (the release binaries link glibc)"
+            libc="musl"
         fi
         case "$arch" in
-            aarch64 | arm64) target="aarch64-unknown-linux-gnu" ;;
-            x86_64) target="x86_64-unknown-linux-gnu" ;;
+            aarch64 | arm64) target="aarch64-unknown-linux-${libc}" ;;
+            x86_64) target="x86_64-unknown-linux-${libc}" ;;
             *) err "unsupported Linux architecture: $arch" ;;
         esac
         ;;

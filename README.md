@@ -25,9 +25,13 @@ Every download is sha256-verified against its upstream's published checksums.
 Toolchains live under `~/.linguo/toolchains/<language>/<version>` (override
 with `$LINGUO_ROOT`).
 
-Prebuilt binaries for macOS (arm64/x86_64), Linux (x64/arm64), and Windows
-(x64) are on the [releases page](https://github.com/BoxingOctopusCreative/linguo/releases).
-Ruby is not yet available on Windows (no upstream relocatable builds).
+Prebuilt binaries for macOS (arm64/x86_64), Linux (x64/arm64, glibc and
+fully static musl), and Windows (x64) are on the
+[releases page](https://github.com/BoxingOctopusCreative/linguo/releases).
+On musl systems (Alpine and friends), Python, Ruby, Rust, and
+Terraform/OpenTofu work natively; Node.js and Go publish no official musl
+builds, so linguo points you at the distro package instead. Ruby is not yet
+available on Windows (no upstream relocatable builds).
 
 ## Install
 
@@ -161,15 +165,14 @@ ecosystem pin file, then the global config.
 
 Roughly in order:
 
-- **Ruby on more platforms**: musl Linux builds (already published by
-  rv-ruby), and a Windows story (RubyInstaller-based).
-- **Windows arm64 binaries**: the backends already map the targets; needs a
-  release lane and CI coverage.
+- **Ruby on Windows** (RubyInstaller-based).
 - **Workspace/monorepo ergonomics**: one `linguo sync` for a repo pinning
   several languages at once.
 
 ## After 1.0
 
+- **Windows arm64 binaries**: the backends already map the targets; needs a
+  release lane and CI coverage.
 - **Developer tool management**: install linters, formatters, and test
   runners through linguo (`linguo python tool install ruff`,
   `linguo node tool install eslint`, `linguo go tool install golangci-lint`,
