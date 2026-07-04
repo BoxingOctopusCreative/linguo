@@ -95,7 +95,7 @@ jobs:
               linguo jvm run -- java -version
               linguo groovy install
               linguo groovy use 5
-              linguo groovy run -- groovy -e "println \"groovy on musl ok\"
+              linguo groovy run -- groovy -e "println \"groovy on musl ok\""
 
               # node and go have no official musl builds: expect honest errors
               linguo node install 2>/dev/null && exit 1 || echo "node bails as expected"
