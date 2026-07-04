@@ -20,7 +20,20 @@ jobs:
         run: |
           python3 - <<'PY'
           import glob, yaml
+
+          def check_dupes(node, path):
+              if isinstance(node, yaml.MappingNode):
+                  keys = [k.value for k, _ in node.value]
+                  dupes = {k for k in keys if keys.count(k) > 1}
+                  assert not dupes, f"{path}: duplicate keys {dupes}"
+                  for k, v in node.value:
+                      check_dupes(v, path)
+              elif isinstance(node, yaml.SequenceNode):
+                  for item in node.value:
+                      check_dupes(item, path)
+
           for f in glob.glob('.github/workflows/*.yml'):
+              check_dupes(yaml.compose(open(f)), f)
               d = yaml.safe_load(open(f))
               assert 'jobs' in d and (True in d or 'on' in d), f
               print(f, 'ok:', list(d['jobs']))
@@ -64,6 +77,8 @@ jobs:
             pacman -U --noconfirm linguo-bin-*.pkg.tar.zst
             linguo --version
           '
+      # Exercises the curl installer's Linux path against the latest release.
+      - name: Install script smoke test
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
