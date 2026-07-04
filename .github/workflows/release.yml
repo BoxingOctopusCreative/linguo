@@ -195,13 +195,14 @@ jobs:
           keyid=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5; exit}')
           if [ -n "$PPA_GPG_PASSPHRASE" ]; then
             # Preset the passphrase so batch signing works.
-            printf 'allow-preset-passphrase
-' >> ~/.gnupg/gpg-agent.conf
+            echo 'allow-preset-passphrase' >> ~/.gnupg/gpg-agent.conf
             gpg-connect-agent reloadagent /bye
             keygrip=$(gpg --list-secret-keys --with-keygrip --with-colons | awk -F: '/^grp/ {print $10; exit}')
             /usr/lib/gnupg/gpg-preset-passphrase --preset "$keygrip" <<< "$PPA_GPG_PASSPHRASE"
           fi
-          ./packaging/ppa/build-source.sh "${{ needs.tag.outputs.version }}"             noble jammy resolute             --sign "$keyid" --upload ppa:boxingoctopuscreative/ppa
+          ./packaging/ppa/build-source.sh "${{ needs.tag.outputs.version }}" \
+            noble resolute \
+            --sign "$keyid" --upload ppa:boxingoctopuscreative/ppa
 
   # Set a CHOCOLATEY_API_KEY secret (from community.chocolatey.org) and each
   # release also publishes the MSI to Chocolatey; the job self-skips while

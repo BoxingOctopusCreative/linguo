@@ -14,6 +14,17 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+      # An invalid workflow file silently loses its triggers on GitHub;
+      # fail loudly here instead.
+      - name: Workflow files parse
+        run: |
+          python3 - <<'PY'
+          import glob, yaml
+          for f in glob.glob('.github/workflows/*.yml'):
+              d = yaml.safe_load(open(f))
+              assert 'jobs' in d and (True in d or 'on' in d), f
+              print(f, 'ok:', list(d['jobs']))
+          PY
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
