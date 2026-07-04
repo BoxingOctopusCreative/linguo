@@ -130,13 +130,22 @@ pub fn install_build(build: &AvailableBuild, dest: &Path) -> Result<()> {
 }
 
 /// JAVA_HOME inside an installed toolchain: macOS bundles nest the JDK under
-/// Contents/Home.
+/// Contents/Home. On Windows the path is normalized to backslashes — batch
+/// launchers (groovy.bat and friends) validate JAVA_HOME with `if exist`,
+/// which rejects mixed separators that leak in via $LINGUO_ROOT.
 pub fn java_home(toolchain: &Path) -> PathBuf {
-    let nested = toolchain.join("Contents").join("Home");
-    if nested.is_dir() {
-        nested
+    let home = {
+        let nested = toolchain.join("Contents").join("Home");
+        if nested.is_dir() {
+            nested
+        } else {
+            toolchain.to_path_buf()
+        }
+    };
+    if cfg!(windows) {
+        PathBuf::from(home.to_string_lossy().replace('/', "\\"))
     } else {
-        toolchain.to_path_buf()
+        home
     }
 }
 
