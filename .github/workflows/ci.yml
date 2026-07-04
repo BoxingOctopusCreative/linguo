@@ -45,8 +45,25 @@ jobs:
           sudo apt-get update && sudo apt-get install -y devscripts debhelper
           version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           ./packaging/ppa/build-source.sh "$version" noble
-      # Exercises the curl installer's Linux path against the latest release.
-      - name: Install script smoke test
+      # Builds the AUR package for real in an Arch container against the
+      # latest release (makepkg refuses root, hence the builder user).
+      - name: AUR package builds
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          version=$(gh release view --json tagName -q '.tagName' | tr -d v)
+          sha_x64=$(gh release download "v${version}" --pattern '*x86_64-unknown-linux-gnu.tar.gz.sha256' -O - | awk '{print $1}')
+          sha_arm=$(gh release download "v${version}" --pattern '*aarch64-unknown-linux-gnu.tar.gz.sha256' -O - | awk '{print $1}')
+          ./packaging/aur/generate.sh "$version" "$sha_x64" "$sha_arm" aur-out
+          docker run --rm -v "$PWD/aur-out:/pkg" archlinux:base-devel bash -ec '
+            useradd -m builder
+            chown -R builder /pkg
+            cd /pkg
+            su builder -c "makepkg --printsrcinfo > .SRCINFO"
+            su builder -c "makepkg --noconfirm"
+            pacman -U --noconfirm linguo-bin-*.pkg.tar.zst
+            linguo --version
+          '
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |

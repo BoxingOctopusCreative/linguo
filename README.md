@@ -65,6 +65,9 @@ sudo add-apt-repository ppa:boxingoctopuscreative/ppa && sudo apt install linguo
 # Chocolatey (rolling out; live once the first submission clears moderation)
 choco install linguo
 
+# Arch Linux AUR (rolling out; live once the first package push lands)
+yay -S linguo-bin
+
 # from a checkout
 cargo install --path .
 ```

@@ -234,6 +234,50 @@ jobs:
           choco pack choco-out/linguo.nuspec --outputdirectory choco-out
           choco push "choco-out/linguo.${version}.nupkg"             --source https://push.chocolatey.org/ --api-key "$CHOCOLATEY_API_KEY"
 
+  # Set an AUR_SSH_KEY secret (private key whose public half is registered
+  # on the aur.archlinux.org account) and each release updates the
+  # linguo-bin AUR package; the job self-skips while the secret is absent.
+  publish-aur:
+    needs: [tag, release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.tag.outputs.version }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Render, generate .SRCINFO, and push
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+        run: |
+          if [ -z "$AUR_SSH_KEY" ]; then
+            echo "no AUR_SSH_KEY secret configured; skipping AUR publish"
+            exit 0
+          fi
+          version="${{ needs.tag.outputs.version }}"
+          sha_x64=$(awk '{print $1}' "dist/linguo-v${version}-x86_64-unknown-linux-gnu.tar.gz.sha256")
+          sha_arm=$(awk '{print $1}' "dist/linguo-v${version}-aarch64-unknown-linux-gnu.tar.gz.sha256")
+          ./packaging/aur/generate.sh "$version" "$sha_x64" "$sha_arm" aur-out
+          docker run --rm -v "$PWD/aur-out:/pkg" archlinux:base-devel bash -ec '
+            useradd -m builder && chown -R builder /pkg && cd /pkg
+            su builder -c "makepkg --printsrcinfo > .SRCINFO"
+          '
+          mkdir -p ~/.ssh
+          echo "$AUR_SSH_KEY" > ~/.ssh/aur_key
+          chmod 600 ~/.ssh/aur_key
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/aur_key -o IdentitiesOnly=yes"
+          git clone ssh://aur@aur.archlinux.org/linguo-bin.git aur-repo
+          cp aur-out/PKGBUILD aur-out/.SRCINFO aur-repo/
+          cd aur-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO
+          git commit -m "linguo-bin ${version}"
+          git push
+
   release:
     needs: [tag, build]
     runs-on: ubuntu-latest

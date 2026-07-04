@@ -1,0 +1,22 @@
+# Maintainer: Ryan Draga <ryan.draga@boxingoctop.us>
+# Auto-updated by the linguo release pipeline.
+pkgname=linguo-bin
+pkgver={{VERSION}}
+pkgrel=1
+pkgdesc="Cross-platform, multi-language runtime, package, and project manager"
+arch=('x86_64' 'aarch64')
+url="https://github.com/BoxingOctopusCreative/linguo"
+license=('MPL-2.0')
+provides=('linguo')
+conflicts=('linguo')
+source_x86_64=("https://github.com/BoxingOctopusCreative/linguo/releases/download/v${pkgver}/linguo-v${pkgver}-x86_64-unknown-linux-gnu.tar.gz")
+source_aarch64=("https://github.com/BoxingOctopusCreative/linguo/releases/download/v${pkgver}/linguo-v${pkgver}-aarch64-unknown-linux-gnu.tar.gz")
+sha256sums_x86_64=('{{SHA_X86_64}}')
+sha256sums_aarch64=('{{SHA_AARCH64}}')
+
+package() {
+    local dist="linguo-v${pkgver}-${CARCH}-unknown-linux-gnu"
+    install -Dm755 "${srcdir}/${dist}/linguo" "${pkgdir}/usr/bin/linguo"
+    install -Dm644 "${srcdir}/${dist}/README.md" "${pkgdir}/usr/share/doc/linguo/README.md"
+    install -Dm644 "${srcdir}/${dist}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
