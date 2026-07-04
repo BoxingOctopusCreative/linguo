@@ -111,6 +111,59 @@ pub fn resolve_pin(language: &str, cwd: &Path) -> Result<Option<Pin>> {
     global_pin(language)
 }
 
+/// The JVM binding for a JVM-based language: nearest project linguo.toml's
+/// `[jvm] <language> = "..."`, then the global config's.
+pub fn jvm_binding(language: &str, cwd: &Path) -> Result<Option<String>> {
+    let read = |path: &Path| -> Result<Option<String>> {
+        if !path.is_file() {
+            return Ok(None);
+        }
+        let text = std::fs::read_to_string(path)
+            .with_context(|| format!("failed to read {}", path.display()))?;
+        let doc: DocumentMut = text
+            .parse()
+            .with_context(|| format!("failed to parse {}", path.display()))?;
+        Ok(doc
+            .get("jvm")
+            .and_then(|t| t.get(language))
+            .and_then(|v| v.as_str())
+            .map(str::to_string))
+    };
+    for dir in cwd.ancestors() {
+        let candidate = dir.join(PIN_FILE);
+        if candidate.is_file()
+            && let Some(binding) = read(&candidate)?
+        {
+            return Ok(Some(binding));
+        }
+    }
+    read(&linguo_root()?.join(GLOBAL_CONFIG))
+}
+
+/// Set `[jvm] <language> = "<value>"` in `path`, creating the file if needed.
+pub fn write_jvm_binding(path: &Path, language: &str, raw: &str) -> Result<()> {
+    let mut doc: DocumentMut = match std::fs::read_to_string(path) {
+        Ok(text) => text
+            .parse()
+            .with_context(|| format!("failed to parse {}", path.display()))?,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => DocumentMut::new(),
+        Err(err) => {
+            return Err(err).with_context(|| format!("failed to read {}", path.display()));
+        }
+    };
+    if doc.get("jvm").is_none() {
+        doc["jvm"] = Item::Table(Table::new());
+    }
+    doc["jvm"][language] = value(raw);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+    std::fs::write(path, doc.to_string())
+        .with_context(|| format!("failed to write {}", path.display()))?;
+    Ok(())
+}
+
 /// Set `[runtimes] <language> = "<raw>"` in `path`, creating the file if needed.
 pub fn write_pin(path: &Path, language: &str, raw: &str) -> Result<()> {
     let mut doc: DocumentMut = match std::fs::read_to_string(path) {
