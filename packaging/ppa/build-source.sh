@@ -59,6 +59,7 @@ tar -C "$work" -czf "${work}/linguo_${version}.orig.tar.gz" "linguo-${version}"
 export DEBEMAIL="ryan.draga@boxingoctop.us"
 export DEBFULLNAME="Ryan Draga"
 
+first_upload=1
 for series in "${series_list[@]}"; do
     build="${work}/${series}/linguo-${version}"
     mkdir -p "${work}/${series}"
@@ -74,10 +75,18 @@ linguo (${version}-1~ppa1~${series}1) ${series}; urgency=medium
  -- ${DEBFULLNAME} <${DEBEMAIL}>  $(date -R)
 CHANGELOG
 
-    if [ -n "$sign_key" ]; then
-        (cd "$build" && dpkg-buildpackage -S -sa -d "-k${sign_key}")
+    # Launchpad accepts the .orig.tar.gz once; later series reference it
+    # with a diff-only upload (-sd) or the queue daemon rejects them.
+    if [ "$first_upload" = 1 ]; then
+        src_opt="-sa"
+        first_upload=0
     else
-        (cd "$build" && dpkg-buildpackage -S -sa -d -us -uc)
+        src_opt="-sd"
+    fi
+    if [ -n "$sign_key" ]; then
+        (cd "$build" && dpkg-buildpackage -S "$src_opt" -d "-k${sign_key}")
+    else
+        (cd "$build" && dpkg-buildpackage -S "$src_opt" -d -us -uc)
     fi
     echo "built ${series}: $(ls "${work}/${series}"/*.changes)"
 
