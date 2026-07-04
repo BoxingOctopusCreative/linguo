@@ -89,6 +89,14 @@ jobs:
               linguo php run -- php -r "echo \"php on musl ok\n\";"
               linguo php run -- composer --version
 
+              linguo jvm install 21
+              mkdir /tmp/jv && cd /tmp/jv
+              linguo jvm use 21
+              linguo jvm run -- java -version
+              linguo groovy install
+              linguo groovy use 5
+              linguo groovy run -- groovy -e "println \"groovy on musl ok\""
+
               # node and go have no official musl builds: expect honest errors
               linguo node install 2>/dev/null && exit 1 || echo "node bails as expected"
               linguo go install 2>/dev/null && exit 1 || echo "go bails as expected"
@@ -155,6 +163,15 @@ jobs:
           linguo php run -- php -r "echo 'php on windows ok';"
           linguo php run -- composer --version
           linguo php which
+
+          linguo jvm install 21
+          mkdir "$RUNNER_TEMP/jvm-demo" && cd "$RUNNER_TEMP/jvm-demo"
+          linguo jvm use 21
+          linguo jvm run -- java -version
+          linguo groovy install
+          linguo groovy use 5
+          linguo groovy run -- groovy -e "println 'groovy on windows ok'"
+          linguo groovy which
 
           linguo zig install 0.16
           mkdir "$RUNNER_TEMP/zig-demo" && cd "$RUNNER_TEMP/zig-demo"

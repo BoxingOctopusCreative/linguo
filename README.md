@@ -8,7 +8,7 @@
 [![License: MPL-2.0](https://img.shields.io/badge/license-MPL--2.0-blue)](LICENSE)
 
 Linguo is a cross-platform, multi-language runtime, package, and project manager: think
-[`uv`](https://github.com/astral-sh/uv), but for **Python, Node.js, Ruby, PHP, Rust, Go, Zig, and Terraform/OpenTofu**.
+[`uv`](https://github.com/astral-sh/uv), but for **Python, Node.js, Ruby, PHP, Rust, Go, Zig, the JVM stack (Java, Kotlin, Groovy, Scala), and Terraform/OpenTofu**.
 
 One binary manages runtime versions, per-project pins, and project workflows
 for every language, with the same command shape everywhere:
@@ -26,6 +26,8 @@ linguo <language> <command>
 | Go | [go.dev/dl](https://go.dev/dl) | go.mod via the go tool |
 | Zig | [ziglang.org](https://ziglang.org/download) (static, musl-friendly) | build.zig.zon via the zig tool |
 | PHP | [static-php-cli](https://dl.static-php.dev) builds (static); [windows.php.net](https://windows.php.net) on Windows | composer.json via bundled Composer |
+| JVM (Temurin JDKs) | [Adoptium API](https://adoptium.net) (incl. Alpine builds) | runtime-only; owns JAVA_HOME |
+| Kotlin / Groovy / Scala | JetBrains & Scala GitHub releases; Apache dist | runtime-only, layered on a JVM via `set-jvm` |
 | Terraform / OpenTofu | [releases.hashicorp.com](https://releases.hashicorp.com) / [get.opentofu.org](https://get.opentofu.org) | runtime-only (providers stay terraform's job) |
 
 Every download is sha256-verified against its upstream's published checksums.
@@ -174,6 +176,19 @@ linguo rust component add rust-analyzer rust-src
 linguo rust target add wasm32-unknown-unknown
 ```
 
+The JVM stack layers: JDKs (Eclipse Temurin) install and pin like any
+runtime and own JAVA_HOME; Kotlin, Groovy, and Scala are toolchains that run
+against the directory's jvm pin, or against a per-language binding when you
+need mixed JDKs in one place:
+
+```sh
+linguo jvm install 21             # latest LTS if no version is given
+linguo jvm use 21                 # every JVM language here uses it...
+linguo kotlin install && linguo kotlin use 2.4
+linguo groovy set-jvm 17          # ...except groovy, now bound to 17
+linguo kotlin run -- kotlinc app.kt -include-runtime -d app.jar
+```
+
 Zig projects work the same way (`linguo zig init/sync/run/which`); `add`
 wraps `zig fetch --save`, which takes archive URLs or paths rather than
 registry names.
@@ -203,18 +218,13 @@ Existing projects work without a `linguo.toml`: when none covers a language,
 linguo honors the ecosystem's own pin file (`.python-version`, `.nvmrc` /
 `.node-version`, `.ruby-version`, go.mod's `toolchain`/`go` directives,
 `rust-toolchain(.toml)`, `.zigversion`, build.zig.zon's
-`minimum_zig_version`, and `.php-version`), as long as it holds a plain version (or, for
+`minimum_zig_version`, `.php-version`, and `.java-version`), as long as it holds a plain version (or, for
 rust, a channel; node aliases like `lts/*` are still ignored). Precedence:
 project `linguo.toml`, then the ecosystem pin file, then the global config.
 
 ## Roadmap
 
-Next up, in release order:
-
-- **1.3.0 Java and JDK-based languages**: JDK management plus Kotlin,
-  Groovy, and Scala.
-
-Then, under consideration:
+Under consideration:
 
 - **Unit-testing framework support** for the managed languages (pairs with
   developer tool management below).

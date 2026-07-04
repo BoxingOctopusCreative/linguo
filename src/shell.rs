@@ -8,11 +8,15 @@ use anyhow::Result;
 use clap::ValueEnum;
 
 use crate::config::PinSource;
-use crate::{go, node, php, python, ruby, rust, terraform, zig};
+use crate::{
+    go, groovy, jvm, jvmlang, kotlin, node, php, python, ruby, rust, scala, terraform, zig,
+};
 
 /// Env var tracking which directories linguo has prepended to PATH, so they
 /// can be removed again when the active project changes.
 const DIRS_VAR: &str = "__LINGUO_DIRS";
+/// Env var marking that linguo set JAVA_HOME, so it can be unset on leave.
+const JAVA_VAR: &str = "__LINGUO_JAVA_HOME";
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum Shell {
@@ -69,7 +73,7 @@ _linguo_hook"#
 }
 
 /// Directories that should be on PATH for the current directory.
-fn desired_dirs() -> Result<Vec<PathBuf>> {
+fn desired_dirs() -> Result<(Vec<PathBuf>, Option<PathBuf>)> {
     let cwd = std::env::current_dir()?;
     let mut dirs = Vec::new();
     // When auto-install is enabled, unsatisfied pins install on the spot.
@@ -125,7 +129,31 @@ fn desired_dirs() -> Result<Vec<PathBuf>> {
             dist, &version,
         )?));
     }
-    Ok(dirs)
+
+    // JVM stack: the jvm pin itself, then the JVM languages (each pushes its
+    // own bin plus its bound JDK's bin; the plain jvm pin owns JAVA_HOME).
+    let mut java_home: Option<PathBuf> = None;
+    if let Some((_, version)) = auto(jvm::LANGUAGE, &|v| jvm::install(Some(v.into())))? {
+        let toolchain = jvm::toolchain_path(&version)?;
+        dirs.push(jvm::dist::bin_dir(&toolchain));
+        java_home = Some(jvm::dist::java_home(&toolchain));
+    }
+    for def in [&kotlin::DEF, &groovy::DEF, &scala::DEF] {
+        let installer = |v: &str| jvmlang::install(def, Some(v.into()));
+        if let Some((_, version)) = auto(def.language, &installer)? {
+            dirs.push(jvmlang::toolchain_bin(def, &version)?);
+            if let Ok((_, home)) = jvm::resolve_for(def.language, &cwd) {
+                let bin = home.join("bin");
+                if !dirs.contains(&bin) {
+                    dirs.push(bin);
+                }
+                if java_home.is_none() {
+                    java_home = Some(home);
+                }
+            }
+        }
+    }
+    Ok((dirs, java_home))
 }
 
 fn quote(s: &str) -> String {
@@ -133,11 +161,13 @@ fn quote(s: &str) -> String {
 }
 
 pub fn env(shell: Shell) -> Result<()> {
-    let desired = desired_dirs()?;
+    let (desired, java_home) = desired_dirs()?;
     let previous: Vec<PathBuf> = std::env::var(DIRS_VAR)
         .map(|v| std::env::split_paths(&v).collect())
         .unwrap_or_default();
-    if desired == previous {
+    let previous_java = std::env::var(JAVA_VAR).ok().filter(|v| !v.is_empty());
+    let desired_java = java_home.map(|p| p.display().to_string());
+    if desired == previous && desired_java == previous_java {
         return Ok(());
     }
 
@@ -156,6 +186,14 @@ pub fn env(shell: Shell) -> Result<()> {
             } else {
                 println!("export {DIRS_VAR}={}", quote(&dirs_value));
             }
+            match &desired_java {
+                Some(home) => {
+                    println!("export JAVA_HOME={}", quote(home));
+                    println!("export {JAVA_VAR}={}", quote(home));
+                }
+                None if previous_java.is_some() => println!("unset JAVA_HOME {JAVA_VAR}"),
+                None => {}
+            }
         }
         Shell::Fish => {
             // fish's PATH is a list variable; set each directory as an element.
@@ -169,6 +207,16 @@ pub fn env(shell: Shell) -> Result<()> {
             } else {
                 println!("set -gx {DIRS_VAR} {}", quote(&dirs_value));
             }
+            match &desired_java {
+                Some(home) => {
+                    println!("set -gx JAVA_HOME {}", quote(home));
+                    println!("set -gx {JAVA_VAR} {}", quote(home));
+                }
+                None if previous_java.is_some() => {
+                    println!("set -e JAVA_HOME; set -e {JAVA_VAR}")
+                }
+                None => {}
+            }
         }
         Shell::Powershell => {
             let new_path = std::env::join_paths(&new_dirs)?;
@@ -177,6 +225,16 @@ pub fn env(shell: Shell) -> Result<()> {
                 println!("Remove-Item Env:\\{DIRS_VAR} -ErrorAction SilentlyContinue");
             } else {
                 println!("$env:{DIRS_VAR} = {}", quote_ps(&dirs_value));
+            }
+            match &desired_java {
+                Some(home) => {
+                    println!("$env:JAVA_HOME = {}", quote_ps(home));
+                    println!("$env:{JAVA_VAR} = {}", quote_ps(home));
+                }
+                None if previous_java.is_some() => println!(
+                    "Remove-Item Env:\\JAVA_HOME, Env:\\{JAVA_VAR} -ErrorAction SilentlyContinue"
+                ),
+                None => {}
             }
         }
     }

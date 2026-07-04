@@ -14,22 +14,26 @@ pub fn exe(name: &str) -> String {
     }
 }
 
-/// Locate an executable named `name` in `dir`, trying Windows executable
-/// extensions when `name` has none.
+/// Locate an executable named `name` in `dir`. On Windows only files with
+/// executable extensions count: toolchains often ship an extensionless unix
+/// script alongside a .bat (groovy, kotlin), and handing the script to
+/// CreateProcess fails with "not a valid Win32 application".
 pub fn find_in_dir(dir: &Path, name: &str) -> Option<PathBuf> {
-    let direct = dir.join(name);
-    if is_executable(&direct) {
-        return Some(direct);
-    }
-    if cfg!(windows) && Path::new(name).extension().is_none() {
-        for ext in ["exe", "cmd", "bat"] {
+    if cfg!(windows) {
+        if Path::new(name).extension().is_some() {
+            let direct = dir.join(name);
+            return direct.is_file().then_some(direct);
+        }
+        for ext in ["exe", "cmd", "bat", "com"] {
             let candidate = dir.join(format!("{name}.{ext}"));
             if candidate.is_file() {
                 return Some(candidate);
             }
         }
+        return None;
     }
-    None
+    let direct = dir.join(name);
+    is_executable(&direct).then_some(direct)
 }
 
 /// A Command for `program`, resolved against linguo-managed dirs first with

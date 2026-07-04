@@ -2,11 +2,16 @@ mod config;
 mod exec;
 mod fetch;
 mod go;
+mod groovy;
+mod jvm;
+mod jvmlang;
+mod kotlin;
 mod node;
 mod php;
 mod python;
 mod ruby;
 mod rust;
+mod scala;
 mod shell;
 mod status;
 mod store;
@@ -56,6 +61,26 @@ enum Command {
     Rust {
         #[command(subcommand)]
         command: RustCommand,
+    },
+    /// Manage JVMs (Eclipse Temurin JDKs)
+    Jvm {
+        #[command(subcommand)]
+        command: JvmCommand,
+    },
+    /// Manage Kotlin toolchains (JVM-based; see set-jvm)
+    Kotlin {
+        #[command(subcommand)]
+        command: JvmLangCommand,
+    },
+    /// Manage Groovy toolchains (JVM-based; see set-jvm)
+    Groovy {
+        #[command(subcommand)]
+        command: JvmLangCommand,
+    },
+    /// Manage Scala toolchains (JVM-based; see set-jvm)
+    Scala {
+        #[command(subcommand)]
+        command: JvmLangCommand,
     },
     /// Manage PHP toolchains and projects
     Php {
@@ -346,6 +371,82 @@ enum RustTargetCommand {
 }
 
 #[derive(Subcommand)]
+enum JvmCommand {
+    /// Download and install a JDK (latest LTS if no version is given)
+    Install { version: Option<String> },
+    /// Remove an installed JDK
+    Uninstall { version: String },
+    /// List installed JDKs
+    List {
+        /// List versions available for download instead
+        #[arg(long)]
+        available: bool,
+    },
+    /// Pin a JVM version for this directory (or globally)
+    Use {
+        version: String,
+        #[arg(long)]
+        global: bool,
+    },
+    /// Upgrade the pinned JDK: newest build within the pin, or bump the pin
+    /// with --latest (targets the newest LTS)
+    Upgrade {
+        #[arg(long)]
+        latest: bool,
+        #[arg(long)]
+        prune: bool,
+    },
+    /// Show which executable a command resolves to (default: java)
+    Which { command: Option<String> },
+    /// Run a command with the pinned JDK on PATH and JAVA_HOME set
+    Run {
+        #[arg(trailing_var_arg = true, required = true)]
+        args: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum JvmLangCommand {
+    /// Download and install a toolchain (latest stable if no version is given)
+    Install { version: Option<String> },
+    /// Remove an installed toolchain
+    Uninstall { version: String },
+    /// List installed toolchains
+    List {
+        /// List versions available for download instead
+        #[arg(long)]
+        available: bool,
+    },
+    /// Pin a version for this directory (or globally)
+    Use {
+        version: String,
+        #[arg(long)]
+        global: bool,
+    },
+    /// Upgrade the pinned toolchain: newest release within the pin, or bump
+    /// the pin itself with --latest
+    Upgrade {
+        #[arg(long)]
+        latest: bool,
+        #[arg(long)]
+        prune: bool,
+    },
+    /// Bind which JVM this language uses here (or globally)
+    SetJvm {
+        version: String,
+        #[arg(long)]
+        global: bool,
+    },
+    /// Show which executable a command resolves to
+    Which { command: Option<String> },
+    /// Run a command with the toolchain and its JVM on PATH, JAVA_HOME set
+    Run {
+        #[arg(trailing_var_arg = true, required = true)]
+        args: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
 enum PhpCommand {
     /// Download and install a toolchain (latest stable if no version is given)
     Install { version: Option<String> },
@@ -470,13 +571,28 @@ enum TerraformCommand {
     },
 }
 
+fn run_jvm_lang(def: &'static jvmlang::Def, command: JvmLangCommand) -> anyhow::Result<()> {
+    match command {
+        JvmLangCommand::Install { version } => jvmlang::install(def, version),
+        JvmLangCommand::Uninstall { version } => store::uninstall(def.language, &version),
+        JvmLangCommand::List { available } => jvmlang::list(def, available),
+        JvmLangCommand::Use { version, global } => {
+            store::use_version(def.language, &version, global)
+        }
+        JvmLangCommand::Upgrade { latest, prune } => jvmlang::upgrade(def, latest, prune),
+        JvmLangCommand::SetJvm { version, global } => jvmlang::set_jvm(def, &version, global),
+        JvmLangCommand::Which { command } => jvmlang::which(def, command),
+        JvmLangCommand::Run { args } => jvmlang::run(def, &args),
+    }
+}
+
 /// Upgrade every language with a resolvable pin in the current directory.
 fn upgrade_all(latest: bool, prune: bool) -> anyhow::Result<()> {
     let cwd = std::env::current_dir()?;
     let mut failures: Vec<String> = Vec::new();
     let mut any = false;
     type UpgradeFn = fn(bool, bool) -> anyhow::Result<()>;
-    let languages: [(&str, UpgradeFn); 7] = [
+    let languages: [(&str, UpgradeFn); 8] = [
         (python::LANGUAGE, python::upgrade),
         (node::LANGUAGE, node::upgrade),
         (ruby::LANGUAGE, ruby::upgrade),
@@ -484,6 +600,7 @@ fn upgrade_all(latest: bool, prune: bool) -> anyhow::Result<()> {
         (rust::LANGUAGE, rust::upgrade),
         (zig::LANGUAGE, zig::upgrade),
         (php::LANGUAGE, php::upgrade),
+        (jvm::LANGUAGE, jvm::upgrade),
     ];
     for (language, upgrade) in languages {
         if store::resolve_pin(language, &cwd)?.is_none() {
@@ -595,6 +712,20 @@ fn main() -> anyhow::Result<()> {
                 RustTargetCommand::Add { triples } => rust::target_add(&triples),
             },
         },
+        Command::Jvm { command } => match command {
+            JvmCommand::Install { version } => jvm::install(version),
+            JvmCommand::Uninstall { version } => store::uninstall(jvm::LANGUAGE, &version),
+            JvmCommand::List { available } => jvm::list(available),
+            JvmCommand::Use { version, global } => {
+                store::use_version(jvm::LANGUAGE, &version, global)
+            }
+            JvmCommand::Upgrade { latest, prune } => jvm::upgrade(latest, prune),
+            JvmCommand::Which { command } => jvm::which(command),
+            JvmCommand::Run { args } => jvm::run(&args),
+        },
+        Command::Kotlin { command } => run_jvm_lang(&kotlin::DEF, command),
+        Command::Groovy { command } => run_jvm_lang(&groovy::DEF, command),
+        Command::Scala { command } => run_jvm_lang(&scala::DEF, command),
         Command::Php { command } => match command {
             PhpCommand::Install { version } => php::install(version),
             PhpCommand::Uninstall { version } => store::uninstall(php::LANGUAGE, &version),

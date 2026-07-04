@@ -9,7 +9,9 @@ use crate::{rust, store, terraform};
 /// Languages whose pins are plain version requests (including ecosystem
 /// pin-file fallbacks, which store::resolve_pin handles); terraform prints
 /// its own section because its pins carry a distribution.
-const GENERIC_LANGUAGES: &[&str] = &["python", "node", "ruby", "php", "go", "zig"];
+const GENERIC_LANGUAGES: &[&str] = &[
+    "python", "node", "ruby", "php", "go", "zig", "jvm", "kotlin", "groovy", "scala",
+];
 
 pub fn status() -> Result<()> {
     let cwd = std::env::current_dir()?;
