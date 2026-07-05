@@ -235,6 +235,9 @@ jobs:
             /src/packaging/copr/build-srpm.sh '${version}' /out
           "
           pipx install copr-cli
+          # copr-cli 2.5's PyPI metadata omits rich, so its isolated venv
+          # lacks it and the CLI crashes on import; inject it explicitly.
+          pipx inject copr-cli rich
           mkdir -p ~/.config
           printf '%s' "$COPR_CONFIG" > ~/.config/copr
           chmod 600 ~/.config/copr
