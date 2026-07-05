@@ -1,5 +1,6 @@
 pub mod dist;
 pub mod project;
+pub mod tool;
 
 use std::path::{Path, PathBuf};
 

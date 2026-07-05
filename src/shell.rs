@@ -9,7 +9,7 @@ use clap::ValueEnum;
 
 use crate::config::PinSource;
 use crate::{
-    go, groovy, jvm, jvmlang, kotlin, node, php, python, ruby, rust, scala, terraform, zig,
+    go, groovy, jvm, jvmlang, kotlin, node, php, python, ruby, rust, scala, terraform, tools, zig,
 };
 
 /// Env var tracking which directories linguo has prepended to PATH, so they
@@ -128,6 +128,15 @@ fn desired_dirs() -> Result<(Vec<PathBuf>, Option<PathBuf>)> {
         dirs.push(terraform::dist::bin_dir(&terraform::toolchain_path(
             dist, &version,
         )?));
+    }
+
+    // Isolated developer tools: the exposed executables of every pinned tool
+    // active here. Global `[tools.<lang>]` pins apply everywhere (pipx-style);
+    // a project's linguo.toml adds or overrides them within the project.
+    // (List grows as tool support fans out to node/go/rust/ruby.)
+    #[allow(clippy::single_element_loop)]
+    for language in [python::LANGUAGE] {
+        dirs.extend(tools::active_exposed_dirs(language, &cwd)?);
     }
 
     // JVM stack: the jvm pin itself, then the JVM languages (each pushes its

@@ -243,6 +243,11 @@ pub fn sync() -> Result<()> {
                 }
             }
         }
+        // Install any developer tools the member declares in [tools.<lang>].
+        if let Err(err) = python::tool::sync_in(member) {
+            eprintln!("  {err:#}");
+            failures.push(format!("{display} (python tools)"));
+        }
     }
     if !failures.is_empty() {
         bail!("sync failed for: {}", failures.join(", "));

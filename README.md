@@ -200,6 +200,35 @@ Zig projects work the same way (`linguo zig init/sync/run/which`); `add`
 wraps `zig fetch --save`, which takes archive URLs or paths rather than
 registry names.
 
+### Developer tools
+
+Beyond project dependencies, linguo installs standalone developer tools
+(linters, formatters, and the like) in isolated environments, pipx-style, so
+their executables land on PATH without polluting any project. Today this
+covers Python:
+
+```sh
+linguo python tool install ruff        # newest ruff, isolated, on PATH everywhere
+linguo python tool install black@25    # pin a version line
+linguo python tool list
+linguo python tool upgrade             # newest within each pin (--latest bumps it)
+linguo python tool uninstall ruff
+```
+
+A repo can declare its tool stack the same way it declares runtimes, in a
+`[tools.python]` table; `linguo sync` installs whatever is missing, and the
+shell hook puts the project's tools on PATH when you land in it:
+
+```toml
+[runtimes]
+python = "3.12"
+
+[tools.python]
+ruff = "0.15"
+```
+
+Global installs (the default) apply everywhere; `--project` writes the pin to
+the local linguo.toml instead. Node, Go, Rust, and Ruby tools are next.
 
 ### Version pins
 
@@ -231,19 +260,21 @@ project `linguo.toml`, then the ecosystem pin file, then the global config.
 
 ## Roadmap
 
+In progress:
+
+- **Developer tool management**: pipx / `uv tool` semantics for every managed
+  language, each tool isolated with its executables on PATH and pinned like a
+  runtime. Python has landed (see above); Node, Go, Rust, and Ruby are the
+  fan-out.
+
 Under consideration:
 
-- **Unit-testing framework support** for the managed languages (pairs with
-  developer tool management below).
+- **Unit-testing framework support**: one `linguo <lang> test` that finds and
+  runs the project's runner, auto-detected from its dependencies and config
+  (pytest else unittest, vitest/jest else the package `test` script, native
+  `go test` / `cargo test`). Builds on tool management above.
 - **Windows arm64 binaries**: the backends already map the targets; needs a
   release lane and CI coverage.
-- **Developer tool management**: install linters, formatters, and test
-  runners through linguo (`linguo python tool install ruff`,
-  `linguo node tool install eslint`, `linguo go tool install golangci-lint`,
-  ...), each in its own isolated environment with its executables on PATH.
-  That's pipx / `uv tool` semantics, but for every managed language. Tools would pin
-  and upgrade like runtimes do, so a repo can declare its lint stack the same
-  way it declares its toolchains.
 
 ## Contributing
 

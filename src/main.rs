@@ -16,6 +16,7 @@ mod shell;
 mod status;
 mod store;
 mod terraform;
+mod tools;
 mod versions;
 mod workspace;
 mod zig;
@@ -165,6 +166,34 @@ enum PythonCommand {
     Run {
         #[arg(trailing_var_arg = true, required = true)]
         args: Vec<String>,
+    },
+    /// Manage isolated developer tools (ruff, black, ...) like pipx
+    Tool {
+        #[command(subcommand)]
+        command: ToolCommand,
+    },
+}
+
+/// Shared shape for `linguo <lang> tool ...` across languages.
+#[derive(Subcommand)]
+enum ToolCommand {
+    /// Install and pin a tool (`name` or `name@version`), globally or in this
+    /// project's linguo.toml with --project
+    Install {
+        spec: String,
+        #[arg(long)]
+        project: bool,
+    },
+    /// List installed tools and their active pins
+    List,
+    /// Remove a tool and drop its global pin
+    Uninstall { name: String },
+    /// Reinstall pinned tools to the newest release within their pin (or the
+    /// newest overall with --latest); one tool if named, else all
+    Upgrade {
+        name: Option<String>,
+        #[arg(long)]
+        latest: bool,
     },
 }
 
@@ -647,6 +676,12 @@ fn main() -> anyhow::Result<()> {
             PythonCommand::Sync => python::project::sync(),
             PythonCommand::Which { command } => python::project::which(command),
             PythonCommand::Run { args } => python::project::run(&args),
+            PythonCommand::Tool { command } => match command {
+                ToolCommand::Install { spec, project } => python::tool::install(&spec, project),
+                ToolCommand::List => tools::list(python::LANGUAGE),
+                ToolCommand::Uninstall { name } => tools::uninstall(python::LANGUAGE, &name),
+                ToolCommand::Upgrade { name, latest } => python::tool::upgrade(name, latest),
+            },
         },
         Command::Node { command } => match command {
             NodeCommand::Install { version } => node::install(version),

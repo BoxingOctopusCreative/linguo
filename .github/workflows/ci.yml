@@ -124,6 +124,11 @@ jobs:
               linguo python init demo
               linguo python run -- python -c "print(\"python on musl ok\")"
 
+              # Isolated developer tool: install, expose, and run via the hook.
+              linguo python tool install ruff
+              linguo python tool list
+              ( eval "$(linguo env --shell bash)"; ruff --version )
+
               linguo ruby install 3.4
               mkdir /tmp/rb && cd /tmp/rb
               linguo ruby use 3.4
@@ -185,6 +190,10 @@ jobs:
           linguo python add requests
           linguo python run -- python -c "import requests; print('python ok')"
           linguo python which
+          # Isolated developer tool; exposure through the hook is checked in
+          # the PowerShell step below (bash PATH separators differ on Windows).
+          linguo python tool install ruff
+          linguo python tool list
 
           linguo node install 24
           mkdir "$RUNNER_TEMP/node-demo" && cd "$RUNNER_TEMP/node-demo"
@@ -254,6 +263,8 @@ jobs:
           $py = (Get-Command python).Source
           if ($py -notlike "*py-demo*") { throw "hook did not activate venv python: $py" }
           python -c "print('powershell hook ok')"
+          # The globally-installed tool is exposed on PATH by the same hook.
+          ruff --version
       - name: Package MSI
         shell: bash
         run: |
