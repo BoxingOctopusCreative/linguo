@@ -68,6 +68,9 @@ choco install linguo
 # Arch Linux AUR (rolling out; live once the first package push lands)
 yay -S linguo-bin
 
+# Fedora COPR (rolling out; live once the first COPR build publishes)
+sudo dnf copr enable boxingoctopuscreative/linguo && sudo dnf install linguo
+
 # from a checkout
 cargo install --path .
 ```
@@ -83,8 +86,9 @@ api.github.com queries with it, and never send it anywhere else.
 
 Every channel is fed automatically by the release pipeline: the tap formula
 (also attached to each release as `linguo.rb`), crates.io, the PPA (source
-packages that Launchpad builds for noble and resolute), and the Chocolatey
-package (which installs the release MSI).
+packages that Launchpad builds for noble and resolute), Fedora COPR (a
+vendored source rpm that COPR builds offline), the AUR `linguo-bin` package,
+and the Chocolatey package (which installs the release MSI).
 
 Then add the shell hook to your rc file so pinned runtimes activate
 automatically when you `cd` into a project:

@@ -1,0 +1,38 @@
+# Auto-updated by the linguo release pipeline.
+Name:           linguo
+Version:        {{VERSION}}
+Release:        1%{?dist}
+Summary:        Cross-platform, multi-language runtime, package, and project manager
+License:        MPL-2.0
+URL:            https://github.com/BoxingOctopusCreative/linguo
+Source0:        linguo-%{version}-vendored.tar.gz
+BuildRequires:  cargo
+BuildRequires:  rust
+ExclusiveArch:  x86_64 aarch64
+
+%description
+linguo manages runtime versions, per-project pins, and project workflows
+for Python, Node.js, Ruby, PHP, Rust, Go, Zig, the JVM stack (Java, Kotlin,
+Groovy, Scala), and Terraform/OpenTofu with one uv-style command surface.
+Toolchains are downloaded from each ecosystem's official source and
+sha256-verified. The source tarball carries vendored cargo dependencies, so
+the build runs offline.
+
+%prep
+%autosetup -n linguo-%{version}
+
+%build
+cargo build --release --offline
+
+%install
+install -Dm755 target/release/linguo %{buildroot}%{_bindir}/linguo
+
+%files
+%{_bindir}/linguo
+%doc README.md
+%license LICENSE
+
+%changelog
+* {{CHANGELOG_DATE}} Ryan Draga <ryan.draga@boxingoctop.us> - {{VERSION}}-1
+- Release {{VERSION}}. See the GitHub release notes:
+  https://github.com/BoxingOctopusCreative/linguo/releases/tag/v{{VERSION}}

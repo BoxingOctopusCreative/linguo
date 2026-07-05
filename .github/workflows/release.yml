@@ -204,6 +204,42 @@ jobs:
             noble resolute \
             --sign "$keyid" --upload ppa:boxingoctopuscreative/ppa
 
+  # Set a COPR_CONFIG secret (the full ~/.config/copr file that `copr-cli`
+  # writes, carrying your API token) and each release submits a build to
+  # Fedora COPR; the job self-skips while the secret is absent. Override the
+  # target project with a COPR_PROJECT secret (default
+  # boxingoctopuscreative/linguo); create it once on COPR before the first
+  # run. The vendored SRPM is built in a Fedora container and compiled
+  # --offline by COPR's mock chroots, matching the PPA lane.
+  publish-copr:
+    needs: tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.tag.outputs.version }}
+      - name: Build SRPM and submit to COPR
+        env:
+          COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
+          COPR_PROJECT: ${{ secrets.COPR_PROJECT || 'boxingoctopuscreative/linguo' }}
+        run: |
+          if [ -z "$COPR_CONFIG" ]; then
+            echo "no COPR_CONFIG secret configured; skipping COPR publish"
+            exit 0
+          fi
+          version="${{ needs.tag.outputs.version }}"
+          mkdir -p copr-out
+          docker run --rm -v "$PWD:/src:ro" -v "$PWD/copr-out:/out" fedora:latest bash -ec "
+            dnf install -y -q git rust cargo rpm-build rpmdevtools >/dev/null
+            git config --global --add safe.directory /src
+            /src/packaging/copr/build-srpm.sh '${version}' /out
+          "
+          pipx install copr-cli
+          mkdir -p ~/.config
+          printf '%s' "$COPR_CONFIG" > ~/.config/copr
+          chmod 600 ~/.config/copr
+          copr-cli build "$COPR_PROJECT" copr-out/*.src.rpm
+
   # Set a CHOCOLATEY_API_KEY secret (from community.chocolatey.org) and each
   # release also publishes the MSI to Chocolatey; the job self-skips while
   # the secret is absent. The nupkg's install script pulls the MSI from the

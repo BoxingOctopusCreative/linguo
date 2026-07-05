@@ -77,6 +77,19 @@ jobs:
             pacman -U --noconfirm linguo-bin-*.pkg.tar.zst
             linguo --version
           '
+      # Keeps the COPR packaging honest: builds the vendored SRPM in a Fedora
+      # container and rebuilds it into an installable binary rpm, offline.
+      - name: COPR source package builds
+        run: |
+          version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          docker run --rm -v "$PWD:/src:ro" fedora:latest bash -ec "
+            dnf install -y -q git rust cargo rpm-build rpmdevtools >/dev/null
+            git config --global --add safe.directory /src
+            /src/packaging/copr/build-srpm.sh '${version}' /tmp/out
+            rpmbuild --rebuild /tmp/out/*.src.rpm
+            rpm -i /root/rpmbuild/RPMS/*/linguo-*.rpm
+            linguo --version
+          "
       # Exercises the curl installer's Linux path against the latest release.
       - name: Install script smoke test
         env:
